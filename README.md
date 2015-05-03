@@ -12,4 +12,5 @@ DynamoDB clone as a assignment for DPRS@FIIT STU written by Barbora, Adam and Ro
 ### Resources ###
 
 [Cowboy - HTTP server](https://github.com/ninenines/cowboy)
+
 [Erlang.mk - build and test utility](https://github.com/ninenines/erlang.mk)
