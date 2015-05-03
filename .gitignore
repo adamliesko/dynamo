@@ -1,0 +1,11 @@
+.eunit
+deps
+*.o
+*.beam
+*.plt
+erl_crash.dump
+ebin
+_rel/dynamo_release
+.concrete/DEV_MODE
+.rebar
+.idea/
