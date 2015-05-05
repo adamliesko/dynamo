@@ -5,10 +5,6 @@
 -export([stop/1]).
 
 start(_Type, _Args) ->
-	lists:foreach(fun(_) ->
-		   kvs_server:start_link()
-		  end, lists:seq(0, 10)),
-    
     Dispatch = cowboy_router:compile([
         {'_', [{"/stats", stats_handler, []},{"/", root_handler, []},
         {"/nodes", nodes_handler, []}]}

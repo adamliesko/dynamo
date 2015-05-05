@@ -1,6 +1,5 @@
 -module(root_handler).
 -behaviour(cowboy_http_handler).
--include("kvs.hrl").
 
 -export([init/3]).
 -export([handle/2]).

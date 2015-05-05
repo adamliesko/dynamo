@@ -5,7 +5,7 @@
 -define(NODES_OFFSET, 1).
 
 -export([start_link/0, hash/0, select_node_for_key/1, join/1 ]).
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,code_change/3]).
 
 -record(ring, {hash, nodes}).
 
@@ -46,6 +46,9 @@ handle_info(_Info, State) ->
 
 terminate(_Reason, _State) ->
     ok.
+
+code_change(_Old, State, _) ->
+	{ok, State}.
 
 %%PRIVATE RING BASIC SETUP AND FUNC
 
