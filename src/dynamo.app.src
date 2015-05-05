@@ -7,7 +7,8 @@
 	{applications, [
 		kernel,
 		stdlib,
-		cowboy
+		cowboy,
+		eunit
 	]},
 	{mod, {dynamo_app, []}},
 	{env, []}
