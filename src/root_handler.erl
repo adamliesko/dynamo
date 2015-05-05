@@ -13,7 +13,6 @@ init(_, Req, _Opts) ->
 
 handle(Req, State=#state{}) ->
 	{Method, Req2} = cowboy_req:method(Req),
-
 	
 	Params = cowboy_req:match_qs([val,key], Req),
 
