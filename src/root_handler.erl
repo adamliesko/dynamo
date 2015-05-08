@@ -1,32 +1,35 @@
-%% Feel free to use, reuse and abuse the code in this file.
-
-%% @doc GET echo handler.
 -module(root_handler).
--behaviour(cowboy_http_handler).
--export([handle/2]).
--export([terminate/3]).
--export([init/3]).
+-export([init/2]).
 
--record(state, {
-}).
+init(Req, Opts) ->
+	Req2 = case cowboy_req:method(Req) of
+		<<"GET">> ->
+			process_get_request(Req);
+		<<"POST">> ->
+			process_post_request(Req);
+		(_) ->
+			cowboy_req:reply(405, Req)
+	end,
+	{ok, Req2, Opts}.
 
-init(_, Req, _Opts) ->
-	{ok, Req, #state{}}.
-handle(Req,State=#state{}) ->
-	Method = cowboy_req:method(Req),
-	#{echo := Echo} = cowboy_req:match_qs([echo], Req),
-	Req2 = echo(Method, Echo, Req),
-	{ok, Req2, State}.
+process_get_request(Req) ->
+	#{key := Key} = cowboy_req:match_qs([key], Req),
+	if Key > 1 ->
+		cowboy_req:reply(200, [
+			{<<"content-type">>, <<"text/plain; charset=utf-8">>}
+		], Key, Req);
+		true->
+			cowboy_req:reply(400, [], <<"Missing key parameter.">>, Req)
+	end.
 
-echo(<<"GET">>, undefined, Req) ->
-	cowboy_req:reply(400, [], <<"Missing echo parameter.">>, Req);
-echo(<<"GET">>, Echo, Req) ->
-	cowboy_req:reply(200, [
-		{<<"content-type">>, <<"text/plain; charset=utf-8">>}
-	], Echo, Req);
-echo(_, _, Req) ->
-	%% Method not allowed.
-	cowboy_req:reply(405, Req).
-
-terminate(_Reason, _Req, _State) ->
-	ok.
+process_post_request(Req) ->
+	{ok, Params, _Req2}  = cowboy_req:body_qs(Req),
+	Key = proplists:get_value(<<"key">>, Params),
+	Value = proplists:get_value(<<"value">>, Params),
+	if Key > 1 ->
+		cowboy_req:reply(200, [
+			{<<"content-type">>, <<"text/plain; charset=utf-8">>}
+		], Value, Req);
+		true->
+			cowboy_req:reply(400, [], <<"Missing required parameters.">>, Req)
+	end.
