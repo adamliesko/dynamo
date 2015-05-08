@@ -9,4 +9,3 @@ put(Key, Val, StorageTable) ->
 
 get(Key, StorageTable) ->
 	dict:fetch(Key, StorageTable).
-

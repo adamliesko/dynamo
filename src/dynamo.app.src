@@ -1,14 +1,12 @@
 {application, dynamo, [
 	{description, "DynamoDB inspired distributed key value store database"},
 	{vsn, "0.1.0"},
-	{id, "git"},
 	{modules, []},
-	{registered, []},
+	{registered, [dynamo_sup, storage_sup]},
 	{applications, [
 		kernel,
 		stdlib,
-		cowboy,
-		eunit
+		cowboy
 	]},
 	{mod, {dynamo_app, []}},
 	{env, []}
