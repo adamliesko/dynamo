@@ -4,22 +4,23 @@
 -export([start_link/3, get/2, put/3, close/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
 
--record(storage, {module,table_storage,name}).
+-record(storage, {module,table_storage,title}).
 
-start_link(Storehouse, IdKey, Name) ->
-   gen_server:start_link({local, Name}, ?MODULE, {Storehouse,IdKey,Name}, []).
+start_link(Storehouse, IdKey, Title) ->
+   gen_server:start_link({local, Title}, ?MODULE, {Storehouse,IdKey,Title}, []).
 
-get(Name, Key) ->
-	gen_server:call(Name, {get, Key}).
+get(Title, Key) ->
+	gen_server:call(Title, {get, Key}).
 
-put(Name, Key, Val) ->
-	gen_server:call(Name, {put, Key, Val}).
+put(Title, Key, Val) ->
+	gen_server:call(Title, {put, Key, Val}).
 
-close(Name) ->
-    gen_server:call(Name, close).
+close(Title) ->
+    gen_server:call(Title, close).
 
-init({Storehouse,IdKey,Name}) ->
-    {ok, #storage{module=Storehouse,table_storage=Storehouse:open(IdKey),name=Name}}.
+init({Storehouse,IdKey,Title}) ->
+    ring:join({Title,node()}),
+    {ok, #storage{module=Storehouse,table_storage=Storehouse:open(IdKey),title=Title}}.
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -40,6 +41,6 @@ handle_call({put, Key, Val}, _From, State = #storage{module=Module,table_storage
 	{reply, ok, State#storage{table_storage=Module:put(Key,Val,TableStorage)}};
 
 handle_call(close, _From, State) ->
-	{stop, close, ok, State}.
+	{stop, shutdown, ok, State}.
 
 
