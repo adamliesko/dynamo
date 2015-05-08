@@ -19,8 +19,7 @@ start(_Type, _Args) ->
 	{ok, _} = cowboy:start_http(http, 100, [{port, 8080}], [
 		{env, [{dispatch, Dispatch}]}
 	]),
-	 {ok, Pid} = dynamo_sup:start_link(),
-	 {ok,Pid}.
+	dynamo_sup:start_link().
 
 stop(_State) ->
 	ok.

@@ -1,12 +1,11 @@
 -module(dynamo_sup).
 -behaviour(supervisor).
 
--export([start_link/0]).
+-export([start_link/1]).
 -export([init/1]).
 
--spec start_link() -> {ok, pid()}.
-start_link() ->
-	supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start_link(Args) ->
+	supervisor:start_link(dynamo_sup,Args).
 
 init({X,StorageArgs}) ->
 	Procs = [
