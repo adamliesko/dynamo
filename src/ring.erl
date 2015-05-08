@@ -12,22 +12,20 @@
 %% PUBLIC API
 
 start_link() ->
-  gen_node:start({local, ring}, ?MODULE, [], []).
+  gen_server:start({local, ring}, ?MODULE, [], []).
 
 join(Node) ->
-	gen_node:call(ring, {join, Node}).
+	gen_server:call(ring, {join, Node}).
 
 hash() ->
-	gen_node:call(ring, hash).
+	gen_server:call(ring, hash).
 
 select_node_for_key(Key) ->
-	gen_node:call(ring, {select_node_for_key, Key, 1}).
+	gen_server:call(ring, {select_node_for_key, Key, 1}).
 select_node_for_key(Key, N) ->
-    	gen_node:call(ring, {select_node_for_key, Key,N}).
+    	gen_server:call(ring, {select_node_for_key, Key,N}).
 
 %% GEN SERVER calls
-
-
 
 %% merging states of nodes into MergedS and setting state= MergedS if any nodes exist
 init(_Args) ->
@@ -43,7 +41,7 @@ init(_Args) ->
 
 %% adding new node
 handle_call({join, {Name, Node}}, _From, State) ->
-	{Added, UpdatedS} = p_join({Name, Node}, State),
+	{_Resp,Added, UpdatedS} = p_join({Name, Node}, State),
     {reply, Added, UpdatedS};
 
 handle_call(hash, _From, State) ->
@@ -98,7 +96,7 @@ p_merge(#ring{nodes=NodesA,hash=HashA}, #ring{nodes=NodesB,hash=HashB}) ->
 %% add new node
 p_join({Name,Node}, State) ->
 	case node_inside_ring({Name,Node}, State) of
-		true -> {reply, exists, State};
+		true -> {duplicate,State};
 		false ->
 			VNodes = v_nodes({Name,Node}),
 			{reply, success, #ring{
@@ -118,7 +116,7 @@ node_inside_ring({Name, Node}, #ring{nodes=Nodes}) ->
 v_nodes({Name,Node})  ->
 	lists:map(
 		fun(X) ->
-			erlang:phash2([X|atom_to_list({Name,Node})])  %% map to list with hash
+			erlang:phash2([X|lists:concat([Name, ":at:", Node])])  %% map to list with hash
 		end,
 		lists:seq(1, ?V_NODES * ?NODES_OFFSET) %% map to list with generated sequence
 	).

@@ -34,7 +34,7 @@ code_change(_Old, State, _New) ->
 p_put(Key, Val, #director{x=X}) ->
   Nodes = ring:select_node_for_key(Key, X),
   Command = fun(Node) ->
-    storage_server:put(Node, Key, Val)
+    storage:put(Node, Key, Val)
   end,
   reader:map_nodes(Command, Nodes, []),
   ok.
@@ -42,7 +42,7 @@ p_put(Key, Val, #director{x=X}) ->
 p_get(Key, #director{x=X}) ->
   Nodes = ring:select_node_for_key(Key, X),
   Command = fun(Node) ->
-    storage_server:get(Node, Key)
+    storage:get(Node, Key)
   end,
   Responses = reader:map_nodes(Command, Nodes, []),
   [{ok,Val}|_R] = lists:filter(fun(Resp) -> {ok,_} = Resp end, Responses),
