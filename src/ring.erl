@@ -146,7 +146,9 @@ nearest_node(Code, N, #ring{hash=Ring, nodes=Nodes}=State) ->
 		first -> nearest_node(0, Ring);
 		FCode -> FCode
 	end,
-	[dict:fetch(NodeCode, Nodes) | nearest_node(NodeCode, N-1,State)];
+  NodeName = dict:fetch(NodeCode, Nodes),
+  	{removed, UpdatedState} = delete_node(NodeName, State),
+	[dict:fetch(NodeCode, Nodes) | nearest_node(NodeCode, N-1,UpdatedState)];
 nearest_node(_C, 0, _S) ->
     [].
 
@@ -158,3 +160,24 @@ nearest_node(Code, [NodeKey|T]) ->
 		true -> NodeKey;
 		false -> nearest_node(Code, T)
 	end.
+
+delete_node(NodeName, State) ->
+    case node_inside_ring(NodeName, State) of
+      true ->
+        VNodes = v_nodes(NodeName),
+        {removed, #ring{
+          hash=remove_hash_nodes(VNodes, State#ring.hash),
+          nodes=remove_nodes(VNodes, State#ring.nodes)
+        }};
+        false -> {not_found, State}
+    end.
+
+remove_hash_nodes(VNodes, Hash) ->
+  lists:subtract(Hash, VNodes).
+
+remove_nodes(VNodes, Nodes) ->
+  lists:foldl(
+    fun(VNode, Acc) ->
+    	dict:erase(VNode, Acc)
+    end, Nodes, VNodes
+  ).
