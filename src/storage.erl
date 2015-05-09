@@ -19,6 +19,7 @@ close(Title) ->
     gen_server:call(Title, close).
 
 init({Storehouse,IdKey,Title}) ->
+    process_flag(trap_exit, true),
     ring:join({Title,node()}),
     {ok, #storage{module=Storehouse,table_storage=Storehouse:open(IdKey),title=Title}}.
 

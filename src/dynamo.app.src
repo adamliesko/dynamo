@@ -8,7 +8,7 @@
 		stdlib,
 		cowboy
 	]},
-	{mod, {dynamo_app, {3,[
+	{mod, {dynamo_app, {{1,1,1},[
 	                        {dict_memory_storage, "empty_in_memory_name_does_not_matter", dict_store}
                           ]
                        }

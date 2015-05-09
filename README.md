@@ -7,7 +7,7 @@ DynamoDB clone as a assignment for DPRS@FIIT STU written by Barbora, Adam and Ro
 `./_rel/dynamo_release/bin/dynamo_release console|start|stop|restart` - for more look at _rel/dynamo_release
 
 ### How do I compile the project after a change? ###
-`compile` - this should throw errors if anything goes wrong
+`make` - this should throw errors if anything goes wrong
 
 ### Resources ###
 
