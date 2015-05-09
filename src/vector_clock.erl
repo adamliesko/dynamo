@@ -68,4 +68,34 @@ equal(First,Second) ->
     end.
 
 diff(First,Second) ->
-  _Eq = equal(First,Second).
+  _Eq = equal(First,Second),
+  _Leq = leq(First,Second),
+  _Geq = leq(Second,First).
+
+leq(First, Second) ->
+  %% first vector clock is shorter
+  Shorter = length(First) < length(Second),
+  %% it contains the same element but the version is lower
+  LessOne = less_one(First,Second),
+  %% if all are less or equal
+  LessOrEqAll = less_or_eq_all(First,Second),
+  (Shorter or LessOne) and LessOrEqAll.
+
+
+less_one(First, Second) ->
+  lists:all(fun({FirstNode,FirstVersion}) ->
+  Returned = lists:keysearch(FirstNode, 1, Second),
+  case Returned of
+    {value,{_SecondNode,SecondVersion}} ->
+      SecondVersion >= FirstVersion;
+    _ -> false
+  end end, First).
+
+less_or_eq_all(First,Second) ->
+  lists:any(fun({FirstNode,FirstVersion}) ->
+  Returned = lists:keysearch(FirstNode, 1, Second),
+  case Returned of
+    {value,{_SecondNode,SecondVersion}} ->
+      not (SecondVersion == FirstVersion);
+    _-> false
+  end end, First).
