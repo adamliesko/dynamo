@@ -4,7 +4,7 @@
 -define(V_NODES, 64).
 -define(NODES_OFFSET, 1).
 
--export([start_link/0, hash/0, select_node_for_key/1,select_node_for_key/2, join/1 ]).
+-export([start_link/0, hash/0,stop/0, select_node_for_key/1,select_node_for_key/2, join/1 ]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,code_change/3]).
 
 -record(ring, {hash, nodes}).
@@ -19,6 +19,9 @@ join(Node) ->
 
 hash() ->
 	gen_server:call(ring, hash).
+
+stop() ->
+  gen_server:call(ring, stop).
 
 select_node_for_key(Key) ->
 	gen_server:call(ring, {select_node_for_key, Key, 1}).
@@ -55,7 +58,9 @@ handle_call({merge,ExternalState}, _From, State) ->
 %% used in R/W operations
 handle_call({select_node_for_key, Key, N}, _From, State) ->
 	HashedKey = erlang:phash2(Key),
-	{reply, nearest_node(HashedKey, N, State), State}.
+	{reply, nearest_node(HashedKey, N, State), State};
+handle_call(stop, _From, State) ->
+	{stop, shutdown, ok, State}.
 
 %% async joining
 handle_cast({join,Node}, State) ->

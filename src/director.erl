@@ -1,7 +1,7 @@
 -module(director).
 -behaviour(gen_server).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([start_link/3, get/1, put/3]).
+-export([start_link/1, get/1, put/3]).
 %% n - degree of replication
 %% 
 %% r - consistency between replicas - min number of nodes for read successful operation
@@ -9,7 +9,7 @@
 %% r+w > n quorum like system
 -record(director, {n,r,w}).
 
-start_link(N,R,W) ->
+start_link({N,R,W}) ->
   gen_server:start_link({local, director}, ?MODULE, {N,R,W}, []).
 
 get(Key) ->
@@ -82,7 +82,6 @@ get_value({Value}) ->
   Value.
 get_ok_replies(ok) ->
   true;
-
 get_ok_replies({ok,_}) ->
   true.
 

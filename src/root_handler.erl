@@ -14,22 +14,25 @@ init(Req, Opts) ->
 
 process_get_request(Req) ->
 	#{key := Key} = cowboy_req:match_qs([key], Req),
-	if Key > 1 ->
-		cowboy_req:reply(200, [
-			{<<"content-type">>, <<"text/plain; charset=utf-8">>}
-		], Key, Req);
-		true->
-			cowboy_req:reply(400, [], <<"Missing key parameter.">>, Req)
-	end.
+	case director:get(Key) of
+	    {ok, {_Context, _Values}} -> 
+	    	cowboy_req:reply(200, [
+				{<<"content-type">>, <<"text/plain; charset=utf-8">>}
+			], Key, Req);
+	    {failure, _Reason} -> 
+	    	cowboy_req:reply(400, [], <<"Missing key parameter.">>, Req)
+ 	 end.
 
 process_post_request(Req) ->
 	{ok, Params, _Req2}  = cowboy_req:body_qs(Req),
 	Key = proplists:get_value(<<"key">>, Params),
 	Value = proplists:get_value(<<"value">>, Params),
-	if Key > 1 ->
-		cowboy_req:reply(200, [
-			{<<"content-type">>, <<"text/plain; charset=utf-8">>}
-		], Value, Req);
-		true->
+	Context = proplists:get_value(<<"context">>, Params),
+	case director:put(Key, Context, Value) of
+		{ok, _N} ->
+			cowboy_req:reply(200, [
+				{<<"content-type">>, <<"text/plain; charset=utf-8">>}
+			], Value, Req);
+    	{failure, _Reason} -> 
 			cowboy_req:reply(400, [], <<"Missing required parameters.">>, Req)
 	end.
