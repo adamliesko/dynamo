@@ -68,9 +68,16 @@ equal(First,Second) ->
     end.
 
 diff(First,Second) ->
-  _Eq = equal(First,Second),
-  _Leq = leq(First,Second),
-  _Geq = leq(Second,First).
+  Eq = equal(First,Second),
+  Leq = leq(First,Second),
+  Geq = leq(Second,First),
+  if
+    Eq -> eq;
+    Leq -> leq;
+    Geq -> geq;
+    true -> to_join
+  end.
+
 
 leq(First, Second) ->
   %% first vector clock is shorter
