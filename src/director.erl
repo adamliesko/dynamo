@@ -66,7 +66,7 @@ p_get(Key, #director{r=R,n=N}) ->
 read_replies([FirstReply|Replies]) ->
   case FirstReply of
     not_found -> not_found;
-    _ -> lists:foldr({vector_clock, fix}, FirstReply, Replies)
+    _ -> lists:foldr( fun vector_clock:fix/2, FirstReply, Replies)
   end.
 
 check_nodes(Command, Nodes) ->
@@ -82,7 +82,7 @@ get_value({Value}) ->
   Value.
 get_ok_replies({_r,{ok,_}}) ->
   true;
-get_ok_replies({_,ok}) ->
+get_ok_replies({ok,_}) ->
   true;
 get_ok_replies(_Reply) ->
   false.

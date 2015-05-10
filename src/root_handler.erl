@@ -16,12 +16,14 @@ process_get_request(Req) ->
 	#{key := Key} = cowboy_req:match_qs([key], Req),
 	case director:get(Key) of
 	    {ok, {Context, Values}} ->
+
 				case Context of
 					failure -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
 					_ ->
+						{_,Value}=Values,
 		    	cowboy_req:reply(200, [
 					{<<"content-type">>, <<"text/plain; charset=utf-8">>}
-				], Values, Req)
+				], Value , Req)
 			end;
 	    {failure, _Reason} ->
 	    	cowboy_req:reply(400, [], <<"Missing key parameter.">>, Req)
