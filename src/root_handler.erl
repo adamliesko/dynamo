@@ -33,15 +33,12 @@ process_post_request(Req) ->
 	{ok, Params, _Req2}  = cowboy_req:body_qs(Req),
 	Key = proplists:get_value(<<"key">>, Params),
 	Value = proplists:get_value(<<"value">>, Params),
-	Context = proplists:get_value(<<"context">>, Params),
-	if
-		Key and Value and Context ->
+	Context = [],
 	case director:put(Key, Context, Value) of
 		{ok, _N} ->
 			cowboy_req:reply(200, [
 				{<<"content-type">>, <<"text/plain; charset=utf-8">>}
 			], Value, Req);
     	{failure, _Reason} ->
-			cowboy_req:reply(400, [], <<"Missing required parameters.">>, Req)
-	end
-end.
+			cowboy_req:reply(400, [], <<"Failed to put your key, sorry :(">>, Req)
+	end.

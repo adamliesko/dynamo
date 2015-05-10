@@ -44,7 +44,10 @@ p_put(Key, Context, Val, #director{w=W,n=N}) ->
   Command = fun(Node) ->
     storage:put(Node, Key, Incr, Val)
   end,
+
   {GoodNodes, _Bad} = check_nodes(Command, Nodes),
+
+    io:format("good: ~p; bad: ~p",[GoodNodes, _Bad]),
   %% check consistency init  param W
   if
     length(GoodNodes) >= W -> {ok,{length(GoodNodes)}};
@@ -71,6 +74,7 @@ read_replies([FirstReply|Replies]) ->
 
 check_nodes(Command, Nodes) ->
   Replies = reader:map_nodes(Command,Nodes),
+  io:format("~p",Replies),
   GoodReplies = [X|| X <- Replies,get_ok_replies(X) ],
   BadReplies = lists:subtract(Replies,GoodReplies),
   GoodValues = [get_value(X) || X <- GoodReplies],
@@ -79,10 +83,14 @@ check_nodes(Command, Nodes) ->
 get_value({ok,Value}) ->
   Value;
 get_value({Value}) ->
-  Value.
+  Value;
+  get_value(ok) ->
+    ok.
 get_ok_replies({_r,{ok,_}}) ->
   true;
 get_ok_replies({ok,_}) ->
+  true;
+get_ok_replies(ok) ->
   true;
 get_ok_replies(_Reply) ->
   false.

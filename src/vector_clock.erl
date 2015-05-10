@@ -54,11 +54,15 @@ join(First, [], Acc) ->
   SortedFirst = lists:keysort(1, First),
   lists:keymerge(1, Acc, SortedFirst).
 
-%% increase context value for each - to be checked
-incr(Node, [Context|VectorClocks]) ->
-  UpdatedClocks =   [{CurrentNode, CurrentContext + 1} || {CurrentNode,CurrentContext} <- VectorClocks],
-  FinalClocks = [UpdatedClocks | {Node,1}],
-  [Context | FinalClocks].
+
+incr(Node, []) ->
+    [{Node, 1}];
+
+incr(Node, [{Node, Context}|VectorClocks]) ->
+  	[{Node, Context+1}|VectorClocks];
+
+incr(Node, [VectorClock|VectorClocks]) ->
+  	[VectorClock|incr(Node, VectorClocks)].
 
 equal(First,Second) ->
     if length(First) == length(Second) ->
