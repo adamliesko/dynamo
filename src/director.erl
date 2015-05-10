@@ -40,7 +40,7 @@ code_change(_Old, State, _New) ->
 
 p_put(Key, Context, Val, #director{w=W,n=N}) ->
   Nodes = ring:select_node_for_key(Key, N),
-  Incr=vector_clock:incr(node(), Context),
+  Incr=vector_clock:incr(self(), [Context]),
   Command = fun(Node) ->
     storage:put(Node, Key, Incr, Val)
   end,

@@ -33,7 +33,12 @@ process_post_request(Req) ->
 	{ok, Params, _Req2}  = cowboy_req:body_qs(Req),
 	Key = proplists:get_value(<<"key">>, Params),
 	Value = proplists:get_value(<<"value">>, Params),
-	Context = [],
+	TContext = proplists:get_value(<<"context">>, Params),
+	IsInt = is_integer_p(TContext),
+	Context = if IsInt -> list_to_integer(binary_to_list(TContext));
+		true -> []
+	end,
+	io:format("c: ~p",[Context]),
 	case director:put(Key, Context, Value) of
 		{ok, _N} ->
 			cowboy_req:reply(200, [
@@ -42,3 +47,12 @@ process_post_request(Req) ->
     	{failure, _Reason} ->
 			cowboy_req:reply(400, [], <<"Failed to put your key, sorry :(">>, Req)
 	end.
+
+%% is_integer taken from http://stackoverflow.com/questions/4536046/test-if-a-string-is-a-number
+is_integer_p(S) ->
+    try
+        _ = list_to_integer(binary_to_list(S)),
+        true
+    catch error:badarg ->
+        false
+    end.
