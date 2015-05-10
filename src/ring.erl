@@ -37,14 +37,16 @@ init(_Args) ->
     if
         Length > 0 ->
             {Good,_Errored} = gen_server:multi_call(nodes(), ring, {merge, State}),
-            [{_Node, MergedS}|_] = Good,
-            {ok, MergedS};
+            case Good of
+              [{_Node, MergedState}|_] -> {ok, MergedState};
+                _ -> {ok, State}
+              end;
     	true -> {ok,State}
     end.
 
 %% adding new node
 handle_call({join, {Name, Node}}, _From, State) ->
-	{_Resp,Added, UpdatedS} = p_join({Name, Node}, State),
+	{Added, UpdatedS} = p_join({Name, Node}, State),
     {reply, Added, UpdatedS};
 
 handle_call(hash, _From, State) ->
@@ -53,7 +55,7 @@ handle_call(hash, _From, State) ->
 %%merging states of nodes - INTERNAL CALL withing init
 handle_call({merge,ExternalState}, _From, State) ->
     UpdatedS = p_merge(ExternalState,State),
-	{reply, State#ring.hash, UpdatedS};
+	{reply, State, UpdatedS};
 
 %% used in R/W operations
 handle_call({select_node_for_key, Key, N}, _From, State) ->
@@ -99,33 +101,36 @@ p_merge(#ring{nodes=NodesA,hash=HashA}, #ring{nodes=NodesB,hash=HashB}) ->
   #ring{nodes=MergedNodes,hash= MergedHash}.
 
 %% add new node
-p_join({Name,Node}, State) ->
-	case node_inside_ring({Name,Node}, State) of
+p_join(Node, State) ->
+	case node_inside_ring(Node, State) of
 		true -> {duplicate,State};
 		false ->
-			VNodes = v_nodes({Name,Node}),
-			{reply, success, #ring{
+			VNodes = v_nodes(Node),
+			{added, #ring{
 				hash=add_nodes(VNodes, State#ring.hash),
-				nodes=map_nodes(VNodes, {Name,Node}, State#ring.nodes)
+				nodes=map_nodes(VNodes, Node, State#ring.nodes)
 			}}
 	end.
 
-node_inside_ring({Name, Node}, #ring{nodes=Nodes}) ->
-  [NodeKey|_] = v_nodes({Name,Node}),
+node_inside_ring(Node, #ring{nodes=Nodes}) ->
+  [NodeKey|_] = v_nodes(Node),
   dict:is_key(NodeKey, Nodes).
 
 %% set ring nodes
 
 %% map with Hash,SequenceOffset
 
-v_nodes({Name,Node})  ->
+v_nodes(Node) ->
+  v_nodes(Node, 1).
+v_nodes({NodeName,Node},Offset) ->
+  v_nodes(lists:concat([NodeName, ":at:", Node]),Offset);
+v_nodes(Node, Offset)  ->
 	lists:map(
 		fun(X) ->
-			erlang:phash2([X|lists:concat([Name, ":at:", Node])])  %% map to list with hash
+			erlang:phash2([X|lists:concat([Node])])  %% map to list with hash
 		end,
-		lists:seq(1, ?V_NODES * ?NODES_OFFSET) %% map to list with generated sequence
+		lists:seq(1, ?V_NODES * Offset) %% map to list with generated sequence
 	).
-
 
 %% store nodes into nodesMap
 map_nodes(VNodes, Node, Nodes) ->
@@ -140,36 +145,36 @@ add_nodes(VNodes, HashRing) ->
 	lists:merge(lists:sort(VNodes), HashRing).
 
 %% consistent_hashing fast lookup  jumping to following ring nodes
+nearest_node(Code, N, State) ->
+  nearest_node(Code, N, State, []).
+nearest_node(_, 0, _, _Found) -> [];
 
-nearest_node(Code, N, #ring{hash=Ring, nodes=Nodes}=State) ->
+nearest_node(Code, N,#ring{hash=Ring, nodes=Nodes}=State,_Found) ->
 	NodeCode = case nearest_node(Code, Ring) of
 		first -> nearest_node(0, Ring);
 		FCode -> FCode
 	end,
   NodeName = dict:fetch(NodeCode, Nodes),
   	{removed, UpdatedState} = delete_node(NodeName, State),
-	[dict:fetch(NodeCode, Nodes) | nearest_node(NodeCode, N-1,UpdatedState)];
-nearest_node(_C, 0, _S) ->
-    [].
-
-
-nearest_node(_, []) -> first;
+	[dict:fetch(NodeCode, Nodes) | nearest_node(NodeCode, N-1,UpdatedState)].
 
 nearest_node(Code, [NodeKey|T]) ->
 	case Code < NodeKey of
 		true -> NodeKey;
 		false -> nearest_node(Code, T)
-	end.
+	end;
+
+nearest_node(_, []) -> first.
 
 delete_node(NodeName, State) ->
     case node_inside_ring(NodeName, State) of
+      false -> {not_found, State};
       true ->
         VNodes = v_nodes(NodeName),
         {removed, #ring{
           hash=remove_hash_nodes(VNodes, State#ring.hash),
           nodes=remove_nodes(VNodes, State#ring.nodes)
-        }};
-        false -> {not_found, State}
+        }}
     end.
 
 remove_hash_nodes(VNodes, Hash) ->

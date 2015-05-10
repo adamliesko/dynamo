@@ -36,10 +36,20 @@ code_change(_Old, State, _) ->
     {ok, State}.
 
 handle_call({get, Key}, _From, State = #storage{module=Module,table_storage=TableStorage}) ->
-	{reply, Module:get(Key, TableStorage), State};
+	{reply,catch Module:get(convert_key_to_list(Key), TableStorage), State};
 
 handle_call({put, Key, Version, Val}, _From, State = #storage{module=Module,table_storage=TableStorage}) ->
-	{reply, ok, State#storage{table_storage=Module:put(Key, Version, Val, TableStorage)}};
+  case catch Module:put(convert_key_to_list(Key),Version,Val,TableStorage) of
+    {ok, Updated} -> {reply,ok,State#storage{table_storage=Updated}};
+    Failure -> {reply, Failure, State}
+  end;
 
 handle_call(close, _From, State) ->
 	{stop, shutdown, ok, State}.
+
+convert_key_to_list(Key) when is_atom(Key) ->
+   atom_to_list(Key);
+convert_key_to_list(Key) when is_binary(Key) ->
+  binary_to_list(Key);
+convert_key_to_list(Key)  ->
+    Key.
