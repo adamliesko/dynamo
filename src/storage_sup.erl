@@ -13,5 +13,5 @@ start_link(Args) ->
 init(Args) ->
     {ok,{{one_for_all,0,1},
       lists:map(fun({Module, IDkey, Title}) ->
-          {Title, {storage,start_link,[Module, IDkey, Title]}, permanent, 1, worker, [storage]}
+          {Title, {storage,start_link,[Module, IDkey, Title]}, permanent, 1000, worker, [storage]}
         end, Args)}}.

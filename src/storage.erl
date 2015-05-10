@@ -39,7 +39,10 @@ handle_call({get, Key}, _From, State = #storage{module=Module,table_storage=Tabl
 	{reply, Module:get(Key, TableStorage), State};
 
 handle_call({put, Key, Version, Val}, _From, State = #storage{module=Module,table_storage=TableStorage}) ->
-	{reply, ok, State#storage{table_storage=Module:put(Key, Version, Val, TableStorage)}};
+	case Module:put(Key, Version, Val, TableStorage) of
+    {ok, UpdatedTableStorage} -> {reply, ok, State#storage{table_storage=UpdatedTable}};
+    _ -> {reply, Failure, State}
+  end;
 
 handle_call(close, _From, State) ->
 	{stop, shutdown, ok, State}.

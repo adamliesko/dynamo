@@ -7,7 +7,7 @@
 -export([start_link/0, hash/0,stop/0, select_node_for_key/1,select_node_for_key/2, join/1 ]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,code_change/3]).
 
--record(ring, {hash, nodes}).
+-record(ring, {parts, clock_version}).
 
 %% PUBLIC API
 
@@ -15,7 +15,7 @@ start_link() ->
   gen_server:start({local, ring}, ?MODULE, [], []).
 
 join(Node) ->
-	gen_server:call(ring, {join, Node}).
+	gen_server:multi_call({ring,Node}, {join, node()}).
 
 hash() ->
 	gen_server:call(ring, hash).
@@ -28,24 +28,31 @@ select_node_for_key(Key) ->
 select_node_for_key(Key, N) ->
     	gen_server:call(ring, {select_node_for_key, Key,N}).
 
+fire_gossip() ->
+  gen_server:call(ring, init_gossip).
+
 %% GEN SERVER calls
 
 %% merging states of nodes into MergedS and setting state= MergedS if any nodes exist
-init(_Args) ->
+init(Args) ->
+    NodesAtStart = nodes(),
     State = set_ring_state([]),
     Length=length(nodes()),
     if
-        Length > 0 ->
-            {Good,_Errored} = gen_server:multi_call(nodes(), ring, {merge, State}),
-            [{_Node, MergedS}|_] = Good,
-            {ok, MergedS};
-    	true -> {ok,State}
+        Length (Nodes)> 0 ->
+              {ok, State} = join(select_node());
+
+    	true -> {ok, initialize_state(Args)}
     end.
 
 %% adding new node
-handle_call({join, {Name, Node}}, _From, State) ->
-	{_Resp,Added, UpdatedS} = p_join({Name, Node}, State),
-    {reply, Added, UpdatedS};
+handle_call({join, {Node}, _From, State) ->
+  UpdatedState = join(Node,State,nodes_in_order()),
+    {reply, UpdatedS, UpdatedS};
+
+handle_call({share_state,UpdatedState}, _From, State) ->
+      UpdatedState = join(Node,State,nodes_in_order()),
+        {reply, UpdatedS, UpdatedS};
 
 handle_call(hash, _From, State) ->
 	{reply, State#ring.hash, State};

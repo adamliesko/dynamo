@@ -3,7 +3,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([start_link/1, get/1, put/3]).
 %% n - degree of replication
-%% 
+%%
 %% r - consistency between replicas - min number of nodes for read successful operation
 %% w - consistency between replicas - min number of nodes for write successful operation
 %% r+w > n quorum like system
@@ -24,7 +24,7 @@ init({N,R,W}) ->
 handle_call({put, Key, Context, Val}, _From, State) ->
   {reply, p_put(Key, Context, Val, State), State};
 handle_call({get, Key}, _From, State) ->
-  {reply, {ok, p_get(Key, State)}, State};
+  {reply, p_get(Key, State), State};
 
 handle_call(stop, _From, State) ->
   {stop, shutdown, ok, State}.
@@ -46,7 +46,7 @@ p_put(Key, Context, Val, #director{w=W,n=N}) ->
   end,
   {GoodNodes, _Bad} = check_nodes(Command, Nodes),
   %% check consistency init  param W
-  if 
+  if
     length(GoodNodes) >= W -> {ok,{length(GoodNodes)}};
     true -> {failure,{length(GoodNodes)}}
   end.
@@ -58,7 +58,7 @@ p_get(Key, #director{r=R,n=N}) ->
   end,
   {GoodNodes, _Bad} = check_nodes(Command, Nodes),
     %% check consistency init  param R
-  if 
+  if
     length(GoodNodes) >= R -> {ok, read_replies(GoodNodes)};
     true -> {failure,{length(GoodNodes)}}
   end.
@@ -68,7 +68,7 @@ read_replies([FirstReply|Replies]) ->
     not_found -> not_found;
     _ -> lists:foldr({vector_clock, fix}, FirstReply, Replies)
   end.
-  
+
 check_nodes(Command, Nodes) ->
   Replies = reader:map_nodes(Command,Nodes),
   GoodReplies = [get_ok_replies(X) || X <- Replies],
@@ -87,5 +87,3 @@ get_ok_replies({ok,_}) ->
 
 %%filter(Set1, Fnc) ->
 %%  [X || X <- Set1, Fnc(X)].
-
-
