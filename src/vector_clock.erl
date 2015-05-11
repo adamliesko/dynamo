@@ -1,8 +1,11 @@
 -module (vector_clock).
--export ([new/1, fix/2, incr/2]).
+-export ([new/1, fix/2, incr/2, prune/1]).
+
+-define(PRUNE_LIMIT, 5).
 
 new(Node) -> [{Node, 1}].
 
+%% resolve key value from two ppossibly different vector clocks
 fix({FClock, _FValues} = First, {SClock, _SValues} = Second) ->
   ComparisonResult = diff(FClock,SClock),
   case ComparisonResult of
@@ -71,6 +74,7 @@ equal(First,Second) ->
         false
     end.
 
+%% just helper function which assess the compare result
 diff(First,Second) ->
   Eq = equal(First,Second),
   Leq = leq(First,Second),
@@ -82,7 +86,7 @@ diff(First,Second) ->
     true -> to_join
   end.
 
-
+%% check if <=, can be used as => with arg switching
 leq(First, Second) ->
   %% first vector clock is shorter
   Shorter = length(First) < length(Second),
@@ -92,7 +96,7 @@ leq(First, Second) ->
   LessOrEqAll = less_or_eq_all(First,Second),
   (Shorter or LessOne) and LessOrEqAll.
 
-
+%% is there one , whcih is less
 less_one(First, Second) ->
   lists:all(fun({FirstNode,FirstVersion}) ->
   Returned = lists:keysearch(FirstNode, 1, Second),
@@ -101,6 +105,7 @@ less_one(First, Second) ->
       SecondVersion >= FirstVersion;
     _ -> false
   end end, First).
+%% are all less or equal?
 
 less_or_eq_all(First,Second) ->
   lists:any(fun({FirstNode,FirstVersion}) ->
@@ -110,3 +115,14 @@ less_or_eq_all(First,Second) ->
       not (SecondVersion == FirstVersion);
     _-> false
   end end, First).
+
+%% shorten prune truncate loooooooong vector clock
+prune(VectorClock) -> 
+VClockLength =  length(VectorClock),
+ if VClockLength  > ?PRUNE_LIMIT ->
+  ContextPos = 2,
+  SortedVectorClock = lists:keysort(ContextPos, VectorClock),
+  lists:nthtail(VClockLength  - ?PRUNE_LIMIT, SortedVectorClock);
+  true ->
+  VectorClock
+end.
