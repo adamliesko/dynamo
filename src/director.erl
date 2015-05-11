@@ -40,14 +40,13 @@ code_change(_Old, State, _New) ->
 
 p_put(Key, Context, Val, #director{w=W,n=N}) ->
   Nodes = ring:select_node_for_key(Key, N),
-  Incr=vector_clock:incr(self(), [Context]),
+  Part = ring:part_for_key(Key),
+  Incr=vector_clock:incr(node(), [Context]),
   Command = fun(Node) ->
-    storage:put(Node, Key, Incr, Val)
+    storage:put({Part,Node}, Key, Incr, Val)
   end,
 
   {GoodNodes, _Bad} = check_nodes(Command, Nodes),
-
-    io:format("good: ~p; bad: ~p",[GoodNodes, _Bad]),
   %% check consistency init  param W
   if
     length(GoodNodes) >= W -> {ok,{length(GoodNodes)}};
@@ -56,8 +55,9 @@ p_put(Key, Context, Val, #director{w=W,n=N}) ->
 
 p_get(Key, #director{r=R,n=N}) ->
   Nodes = ring:select_node_for_key(Key, N),
+  Part = ring:part_for_key(Key),
   Command = fun(Node) ->
-    storage:get(Node, Key)
+    storage:get({Part, Node}, Key)
   end,
   {GoodNodes, _Bad} = check_nodes(Command, Nodes),
     %% check consistency init  param R
