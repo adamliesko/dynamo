@@ -49,7 +49,7 @@ handle_call({get, Key}, _From, State = #storage{module=Module,table_storage=Tabl
 
 handle_call({put, Key, Version, Val}, _From, State = #storage{module=Module,table_storage=TableStorage,tree=Tr}) ->
   CurrentTr = merkle_tree:update(Key,Val,Tr), %% updating tree
-  case catch Module:put(convert_key_to_list(Key),Version,Val,TableStorage) of
+  case catch Module:put(convert_key_to_list(Key),vector_clock:truncate(Version),Val,TableStorage) of
     {ok, Updated} -> {reply,ok,State#storage{table_storage=Updated,tree=CurrentTr}};
     Failure -> {reply, Failure, State}
   end;
