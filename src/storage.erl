@@ -26,8 +26,7 @@ close(Title) ->
 
 init({Storehouse,IdKey,Title,Start,End}) ->
     process_flag(trap_exit, true),
-    ring:join({Title,node()}),
-    Storage = Storehouse:open(IdKey,Title), 
+    Storage = Storehouse:open(IdKey,Title),
     Tr = Storehouse:fold(fun(Key,_,Val, Aku) ->
       merkle:update(Key,Val,Aku) end, Storage, merkle:create(Start,End)),
     {ok, #storage{module=Storehouse,table_storage=Storage,tree=Tr,title=Title}}.
@@ -78,7 +77,7 @@ synchronize(First,Second) ->
   lists:foreach(fun(Key) ->
     {ok, FirstReply} = get(First,Key),
     {ok, SecondReply} = get(Second, Key),
-    case {FirstReply,SecondReply} of 
+    case {FirstReply,SecondReply} of
       %% second is missing some key
      {{Version,[Val]}, not_found}  ->
         put(First,Key,Version,Val);
@@ -86,7 +85,7 @@ synchronize(First,Second) ->
       %% first is missing some key
         put(Second,Key,Version,Val);
       %% none, we need to resolve it from vector_clock
-      _ -> 
+      _ ->
         {Version,[Val|_]=Vals} = vector_clock:fix(FirstReply, SecondReply),
         LengthV = length(Vals),
         if LengthV == 1 ->
