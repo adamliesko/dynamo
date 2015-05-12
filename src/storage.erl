@@ -28,7 +28,7 @@ init({Storehouse,IdKey,Title,Start,End}) ->
     process_flag(trap_exit, true),
     Storage = Storehouse:open(IdKey,Title),
     Tr = Storehouse:fold(fun(Key,_,Val, Aku) ->
-      merkle:update(Key,Val,Aku) end, Storage, merkle:create(Start,End)),
+      merkle:insert(Key,Val,Aku) end, Storage, merkle:init(Start,End)),
     {ok, #storage{module=Storehouse,table_storage=Storage,tree=Tr,title=Title}}.
 
 handle_cast(_Msg, State) ->
@@ -47,7 +47,7 @@ handle_call({get, Key}, _From, State = #storage{module=Module,table_storage=Tabl
 	{reply,catch Module:get(convert_key_to_list(Key), TableStorage), State};
 
 handle_call({put, Key, Version, Val}, _From, State = #storage{module=Module,table_storage=TableStorage,tree=Tr}) ->
-  CurrentTr = merkle_tree:update(Key,Val,Tr), %% updating tree
+  CurrentTr = merkle_tree:insert(Key,Val,Tr), %% updating tree
   case catch Module:put(convert_key_to_list(Key),vector_clock:truncate(Version),Val,TableStorage) of
     {ok, Updated} -> {reply,ok,State#storage{table_storage=Updated,tree=CurrentTr}};
     Failure -> {reply, Failure, State}
@@ -93,7 +93,7 @@ synchronize(First,Second) ->
           put(First, Key, Version, Val)
         end
     end
-  end, merkle_tree:different(FTree,STree)).
+  end, merkle_tree:diff(FTree,STree)).
 
 tree(Node) ->
   gen_server:call(Node, tree).

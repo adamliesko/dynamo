@@ -39,7 +39,7 @@ get_nodes_for_key(Key) ->
     gen_server:call(ring, {get_nodes_for_key, Key}).
 
 join(OtherNode,ThisNode) ->
-	gen_server:call({ring,join}, {OtherNode, ThisNode}).
+	gen_server:call({ring,OtherNode}, {join, ThisNode}).
 
 get_oldies_parts() ->
   gen_server:call(ring, get_oldies_parts).
@@ -269,6 +269,7 @@ p_join(IncomingNode, #ring{n=N,q=Q,parts=Parts,version=Version,nodes=Oldies}) ->
     PerNode = ToHandout div (NodesL-1),
     {FreshNodes,_} = [X || X <- CurrNodes, fun() -> X =/= IncomingNode end], %%todo, check
     UP = take_parts(IncomingNode, ToHandout, PerNode, PerNode, FreshNodes, Parts, []),
+    io:format("xxxx: nodes is ~p",[node()]),
     #ring{n=N,q=Q, parts=UP,version = vector_clock:incr(node(), Version),
       nodes=CurrNodes,oldies=Parts}.
 

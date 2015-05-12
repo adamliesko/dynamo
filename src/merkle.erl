@@ -9,7 +9,7 @@
 -define(FNV_PRIME, 16777619).
 
 init(Min, Max) ->
-Root = #root{min=Min,max=Max,node=#node{hash=empty,middle=(Min+Max) div 2,left=empty,right=empty}}.
+#root{min=Min,max=Max,node=#node{hash=empty,middle=(Min+Max) div 2,left=empty,right=empty}}.
 
 %Insert item to tree
 insert(Key, Value, Root = #root{max=Max,min=Min,node=Node}) ->
@@ -20,7 +20,7 @@ insert(_, Key, Value, _, _, empty) ->
   #leaf{hash=hash(Value),key=Key};
 
 % Problem when node is inner node
-insert(KeyHash, Key, Value, Min, Max, Node) when is_record(Node, node) -> 
+insert(KeyHash, Key, Value, Min, Max, Node) when is_record(Node, node) ->
   H = hash(Key),
   if (H < Node#node.middle) ->
     Left=insert(KeyHash, Key, Value, Min, Node#node.middle, Node#node.left),
@@ -94,16 +94,16 @@ hash(#root{node=Node}) -> hash(Node);
 hash(#node{hash=Hash}) -> Hash;
 hash(#leaf{hash=Hash}) -> Hash;
 hash(N) -> hasha(N).
-  
+
 %32 bit fnv.
 hasha(Term) when is_binary(Term) ->
   fnv_int(?OFFSET_BASIS, Term);
-  
+
 hasha(Term) ->
   fnv_int(?OFFSET_BASIS, term_to_binary(Term)).
-  
+
 fnv_int(Hash, <<"">>) -> Hash;
-  
+
 fnv_int(Hash, <<Octet:8, Bin/binary>>) ->
   Xord = Hash bxor Octet,
   fnv_int((Xord * ?FNV_PRIME) rem (2 bsl 31), Bin).
@@ -112,6 +112,3 @@ fnv_int(Hash, <<Octet:8, Bin/binary>>) ->
 %md5(S) ->
 % string:to_upper(
 %  lists:flatten([io_lib:format("~2.16.0b",[N]) || <<N>> <= erlang:md5(S)])).
-
-
-
