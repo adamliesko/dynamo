@@ -14,7 +14,8 @@ init(_Args) ->
 	Parts = ring:parts_for_node(node(), all),
 	DeadParts = ring:get_oldies_parts(),
 	Setup = lists:map(fun(P) ->
-    Title = list_to_atom(lists:concat([storehouse_, P])),
+    Title = list_to_atom(lists:concat([storage_, P])),
+
 	{Start,End} = ring:get_range(P),
 
 		case lists:keysearch(P,2,DeadParts) of

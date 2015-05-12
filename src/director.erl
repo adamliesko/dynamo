@@ -38,12 +38,12 @@ terminate(_R, _State) ->
 code_change(_Old, State, _New) ->
     {ok, State}.
 
-p_put(Key, Context, Val, #director{w=W,n=N}) ->
-  Nodes = ring:select_node_for_key(Key, N),
+p_put(Key, Context, Val, #director{w=W,n=_N}) ->
+  Nodes = ring:get_nodes_for_key(Key),
   Part = ring:part_for_key(Key),
   Incr=vector_clock:incr(node(), [Context]),
   Command = fun(Node) ->
-    storage:put({Part,Node}, Key, Incr, Val)
+    storage:put({list_to_atom(lists:concat([storage_, Part])),Node}, Key, Incr, Val)
   end,
 
   {GoodNodes, _Bad} = check_nodes(Command, Nodes),
@@ -53,16 +53,18 @@ p_put(Key, Context, Val, #director{w=W,n=N}) ->
     true -> {failure,{length(GoodNodes)}}
   end.
 
-p_get(Key, #director{r=R,n=N}) ->
-  Nodes = ring:select_node_for_key(Key, N),
+p_get(Key, #director{r=R,n=_N}) ->
+  Nodes = ring:get_nodes_for_key(Key),
   Part = ring:part_for_key(Key),
   Command = fun(Node) ->
-    storage:get({Part, Node}, Key)
+    storage:get({list_to_atom(lists:concat([storage_, Part])), Node}, Key)
   end,
-  {GoodNodes, _Bad} = check_nodes(Command, Nodes),
+  {GoodNodes, Bad} = check_nodes(Command, Nodes),
+  NotFound = length(Bad) > 0,
     %% check consistency init  param R
   if
     length(GoodNodes) >= R -> {ok, read_replies(GoodNodes)};
+    NotFound -> {ok, not_found};
     true -> {failure,{length(GoodNodes)}}
   end.
 
@@ -74,25 +76,23 @@ read_replies([FirstReply|Replies]) ->
 
 check_nodes(Command, Nodes) ->
   Replies = reader:map_nodes(Command,Nodes),
-  io:format("~p",Replies),
+  io:format("~p",[Replies]),
   GoodReplies = [X|| X <- Replies,get_ok_replies(X) ],
-  BadReplies = lists:subtract(Replies,GoodReplies),
+ BadReplies = lists:subtract(Replies,GoodReplies),
   GoodValues = [get_value(X) || X <- GoodReplies],
   {GoodValues, BadReplies}.
 
-get_value({ok,Value}) ->
-  Value;
-get_value({Value}) ->
-  Value;
-  get_value(ok) ->
-    ok.
-get_ok_replies({_r,{ok,_}}) ->
+get_value({_, {ok, Val}}) ->
+  Val;
+  get_value(V) ->
+    V.
+get_ok_replies({_, {ok, _}}) ->
   true;
-get_ok_replies({ok,_}) ->
-  true;
-get_ok_replies(ok) ->
+get_ok_replies({_, ok}) ->
   true;
 get_ok_replies(_Reply) ->
   false.
+
+
 %%filter(Set1, Fnc) ->
 %%  [X || X <- Set1, Fnc(X)].

@@ -14,17 +14,16 @@ init(Req, Opts) ->
 
 process_get_request(Req) ->
 	#{key := Key} = cowboy_req:match_qs([key], Req),
+	io:format(" >>>> ~p <<<<",[director:get(Key)]),
 	case director:get(Key) of
-	    {ok, {Context, Values}} ->
-
-				case Context of
-					failure -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
-					_ ->
+		{ok,{ok,not_found}} -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
+	    {ok, {_Context, Values}} ->
 						{_,Value}=Values,
+						%%Response = lists:concat([context_,Context,value_, Value]),
 		    	cowboy_req:reply(200, [
 					{<<"content-type">>, <<"text/plain; charset=utf-8">>}
-				], Value , Req)
-			end;
+				], Value, Req);
+
 	    {failure, _Reason} ->
 	    	cowboy_req:reply(400, [], <<"Missing key parameter.">>, Req)
  	 end.
@@ -38,7 +37,6 @@ process_post_request(Req) ->
 	Context = if IsInt -> list_to_integer(binary_to_list(TContext));
 		true -> []
 	end,
-	io:format("c: ~p",[Context]),
 	case director:put(Key, Context, Value) of
 		{ok, _N} ->
 			cowboy_req:reply(200, [

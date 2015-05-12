@@ -12,14 +12,14 @@ start_link(Storehouse, IdKey, Title, Start, End) ->
 %% there is/are some old dead bad wrong thirsty nodes
 start_link(Storehouse, IdKey, Title, Start, End, DeadNode) ->
    {ok, This} = gen_server:start_link({local, Title}, ?MODULE, {Storehouse,IdKey,Title,Start,End}, []),
-   spawn(synchronize(This,{Title,DeadNode})),
+   spawn(fun() -> synchronize(This,{Title,DeadNode}) end),
    {ok, This}.
 
 get(Title, Key) ->
 	gen_server:call(Title, {get, Key}).
 
 put(Title, Key, Version, Val) ->
-	gen_server:call(Title, {put, Key, Version, Val},1000).
+	gen_server:call(Title, {put, Key, Version, Val}).
 
 close(Title) ->
     gen_server:call(Title, close).
@@ -27,7 +27,7 @@ close(Title) ->
 init({Storehouse,IdKey,Title,Start,End}) ->
     process_flag(trap_exit, true),
     Storage = Storehouse:open(IdKey,Title),
-    Tr = Storehouse:fold(fun(Key,_,Val, Aku) ->
+    Tr = Storehouse:fold(fun({Key,_,Val}, Aku) ->
       merkle:insert(Key,Val,Aku) end, Storage, merkle:init(Start,End)),
     {ok, #storage{module=Storehouse,table_storage=Storage,tree=Tr,title=Title}}.
 
@@ -47,8 +47,8 @@ handle_call({get, Key}, _From, State = #storage{module=Module,table_storage=Tabl
 	{reply,catch Module:get(convert_key_to_list(Key), TableStorage), State};
 
 handle_call({put, Key, Version, Val}, _From, State = #storage{module=Module,table_storage=TableStorage,tree=Tr}) ->
-  CurrentTr = merkle_tree:insert(Key,Val,Tr), %% updating tree
-  case catch Module:put(convert_key_to_list(Key),vector_clock:truncate(Version),Val,TableStorage) of
+  CurrentTr = merkle:insert(Key,Val,Tr), %% updating tree
+  case catch Module:put(convert_key_to_list(Key),vector_clock:prune(Version),Val,TableStorage) of
     {ok, Updated} -> {reply,ok,State#storage{table_storage=Updated,tree=CurrentTr}};
     Failure -> {reply, Failure, State}
   end;

@@ -64,7 +64,7 @@ init({N,Q}) ->
 
 launch_gossip() ->
   State = get_state(),
-  CurrentNodes = [X || X <- ring:nodes(), fun() -> X /= node() end], %% todo
+  CurrentNodes = ring:nodes() -- [node()],
   LofNodes = length(CurrentNodes),
      UpdatedState = if LofNodes > 0 ->
                      %% call random 2 nodes from ring, to share their state
@@ -102,6 +102,9 @@ handle_call({get_range, Part}, _Fr, State) ->
   L = nth_power_of_two(32-State#ring.q), %% push quorum
   End = Part + L,
   {reply, {Part, End}, State};
+
+handle_call(nodes, _Fr, St = #ring{nodes=Nodes}) ->
+  {reply, Nodes, St};
 
 handle_call({get_nodes_for_key, Key}, _From, State) ->
       {reply, p_nodes_for_key(Key, State), State};
@@ -209,7 +212,7 @@ inside(N, Tail, nil, [H|TNodes], One) ->
 
 %% select partition for a hashed key
 p_part_for_key(Key, State) ->
-  Hashed = erlang:phash(Key),
+  Hashed = erlang:phash2(Key),
   Quorum = State#ring.q,
   RangeL = nth_power_of_two(32-Quorum), %% todo, extract? maybe?
   DivRes = (Hashed div RangeL),
@@ -269,7 +272,6 @@ p_join(IncomingNode, #ring{n=N,q=Q,parts=Parts,version=Version,nodes=Oldies}) ->
     PerNode = ToHandout div (NodesL-1),
     {FreshNodes,_} = [X || X <- CurrNodes, fun() -> X =/= IncomingNode end], %%todo, check
     UP = take_parts(IncomingNode, ToHandout, PerNode, PerNode, FreshNodes, Parts, []),
-    io:format("xxxx: nodes is ~p",[node()]),
     #ring{n=N,q=Q, parts=UP,version = vector_clock:incr(node(), Version),
       nodes=CurrNodes,oldies=Parts}.
 
@@ -287,7 +289,7 @@ p_parts_for_node(Node, St, all) ->
           end, [], PNodes).
 
       p_nodes_for_key(Key, St) ->
-        HashedKey= lib_misc:phash(Key),
+        HashedKey= erlang:phash2(Key),
         Quorum = St#ring.q,
         Part = select_part(HashedKey, Quorum),
         p_nodes_for_part(Part, St).

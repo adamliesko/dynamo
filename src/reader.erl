@@ -1,11 +1,13 @@
 -module(reader).
 -export([map_nodes/2]).
 
-%% returns Array of fncs
 map_nodes(Command, Array) ->
   Parent = self(),
+  io:format(
+  "ppp:~p",[Array]
+  ),
   %% get pids
-  Pids = [spawn(fun() -> Parent ! {self(), (catch Command(Element))} end)
-    || Element <- Array],
-    %% final map of nodes and pids
-  [receive {Pid, Val} -> Val end || Pid <- Pids].
+  Pids = [spawn(fun() -> Parent ! {self(), { Nod, (catch Command(Nod)) }  } end)
+    ||
+    Nod <- Array],
+  [receive {Pid, Value} -> Value end || Pid <- Pids].
