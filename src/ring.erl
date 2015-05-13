@@ -261,17 +261,24 @@ n_cons_nodes(StartN, No, CNodes) ->
     end.
 
 %% tail call so reverse, to check
-n_cons_nodes(_, 0, _, Acc, _) -> lists:reverse(Acc);
+n_cons_nodes(_, 0, _, Acc, _) ->
+io:format("6"),
+lists:reverse(Acc);
 
-n_cons_nodes(FNode, No, [], Acc, CNodes) -> n_cons_nodes(FNode, No, CNodes, Acc, CNodes);
+n_cons_nodes(FNode, No, [], Acc, CNodes) ->
+io:format("6"),
+n_cons_nodes(FNode, No, CNodes, Acc, CNodes);
 
 n_cons_nodes(found, N, [H|CNodes], Acc, Nodes) ->
+  io:format("6"),
   n_cons_nodes(found, N-1, CNodes, [H|Acc], Nodes);
 
 n_cons_nodes(StartN, N, [StartN|Nodes], Acc, CNodes) ->
+  io:format("6"),
   n_cons_nodes(found, N-1, Nodes, [StartN|Acc], CNodes);
 
 n_cons_nodes(StartN, No, [_|CNodes], Acc, Nodes) ->
+  io:format("6"),
   n_cons_nodes(StartN, No, CNodes, Acc, Nodes). %% sometimes it could help
 
 
@@ -283,6 +290,7 @@ p_join(IncomingNode, #ring{n=N,q=Q,parts=Parts,version=Version,nodes=Oldies}) ->
     PerNode = ToHandout div (NodesL-1),
     {CleanNodes,_} = lists:partition(fun(E) -> E =/= IncomingNode end, CurrNodes),
     UP = take_parts(IncomingNode, ToHandout, PerNode, PerNode, CleanNodes, Parts, []),
+    io:format("RING VOLNY"),
     #ring{n=N,q=Q, parts=UP,version = vector_clock:incr(node(), Version),
       nodes=CurrNodes,oldies=Parts}.
 
@@ -300,16 +308,21 @@ p_parts_for_node(Node, St, all) ->
           end, [], PNodes).
 
       p_nodes_for_key(Key, St) ->
+        io:format("1"),
         HashedKey= erlang:phash2(Key),
         Quorum = St#ring.q,
         Part = select_part(HashedKey, Quorum),
+        io:format("2"),
         p_nodes_for_part(Part, St).
 
       p_nodes_for_part(Part, St) ->
         Parts = St#ring.parts,
+        io:format("3"),
         Quorum = St#ring.q,
         N = St#ring.n,
+        io:format("4"),
         {CNode,Part} = lists:nth(idx_for_part(Part, Quorum), Parts),
+        io:format("5"),
         n_cons_nodes(CNode, N, St#ring.nodes).
 
 select_part(HashedK,Q) ->
