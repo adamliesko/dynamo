@@ -11,7 +11,7 @@ put(Key, Version, Val, StorageTable) ->
 get(Key, StorageTable) ->
 	case dict:find(Key, StorageTable) of
     {ok, Val} -> {ok, Val};
-    _ -> {ok, not_found}
+    _ -> not_found
   end.
 
 fold(Cmd, Storehouse, Acc) ->

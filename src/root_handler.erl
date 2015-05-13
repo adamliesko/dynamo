@@ -14,9 +14,9 @@ init(Req, Opts) ->
 
 process_get_request(Req) ->
 	#{key := Key} = cowboy_req:match_qs([key], Req),
-
 	case director:get(Key) of
 		{ok,{ok,not_found}} -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
+		{ok, 	    {failure, _Reason}} -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
 	    {ok, {_Context, Values}} ->
 						{_,Value}=Values,
 						%%Response = lists:concat([context_,Context,value_, Value]),
@@ -38,12 +38,13 @@ process_post_request(Req) ->
 		true -> []
 	end,
 	case director:put(Key, Context, Value) of
+		{failure, _Reason} ->
+		cowboy_req:reply(400, [], <<"Failed to put your key, sorry :(">>, Req);
 		{ok, _N} ->
 			cowboy_req:reply(200, [
 				{<<"content-type">>, <<"text/plain; charset=utf-8">>}
-			], Value, Req);
-    	{failure, _Reason} ->
-			cowboy_req:reply(400, [], <<"Failed to put your key, sorry :(">>, Req)
+			], Value, Req)
+
 	end.
 
 %% is_integer taken from http://stackoverflow.com/questions/4536046/test-if-a-string-is-a-number

@@ -13,7 +13,6 @@ start_link({N,R,W}) ->
   gen_server:start_link({local, director}, ?MODULE, {N,R,W}, []).
 stop() ->
     gen_server:call(director, stop).
-
 get(Key) ->
   gen_server:call(director, {get, Key}).
 
