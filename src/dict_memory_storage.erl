@@ -18,5 +18,5 @@ fold(Cmd, Storehouse, Acc) ->
   dict:fold(fun(Key, {Context, [Value]}, Aku) ->
       Cmd({Key, Context, Value}, Aku)
     end, Acc, Storehouse).
-		
+
 info(Dict) -> dict:fetch_keys(Dict).

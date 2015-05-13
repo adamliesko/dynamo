@@ -14,7 +14,7 @@ init(Req, Opts) ->
 
 process_get_request(Req) ->
 	#{key := Key} = cowboy_req:match_qs([key], Req),
-	io:format(" >>>> ~p <<<<",[director:get(Key)]),
+
 	case director:get(Key) of
 		{ok,{ok,not_found}} -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
 	    {ok, {_Context, Values}} ->

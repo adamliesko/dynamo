@@ -24,4 +24,4 @@ init(_Args) ->
 			false ->  {P, {storage,start_link, [dict_memory_storage,Title,Title,Start,End]}, permanent, 1000, worker,[storage]}
 
 		end end, Parts),
-     {ok,{{one_for_all,0,1},Setup}}.
+     {ok,{{one_for_one,0,1},Setup}}.

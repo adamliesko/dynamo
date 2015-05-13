@@ -1,7 +1,7 @@
 -module(director).
 -behaviour(gen_server).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([start_link/1, get/1, put/3]).
+-export([start_link/1, get/1, put/3,stop/0]).
 %% n - degree of replication
 %%
 %% r - consistency between replicas - min number of nodes for read successful operation
@@ -11,6 +11,8 @@
 
 start_link({N,R,W}) ->
   gen_server:start_link({local, director}, ?MODULE, {N,R,W}, []).
+stop() ->
+    gen_server:call(director, stop).
 
 get(Key) ->
   gen_server:call(director, {get, Key}).
@@ -76,7 +78,6 @@ read_replies([FirstReply|Replies]) ->
 
 check_nodes(Command, Nodes) ->
   Replies = reader:map_nodes(Command,Nodes),
-  io:format("~p",[Replies]),
   GoodReplies = [X|| X <- Replies,get_ok_replies(X) ],
  BadReplies = lists:subtract(Replies,GoodReplies),
   GoodValues = [get_value(X) || X <- GoodReplies],

@@ -16,10 +16,10 @@ start_link(Storehouse, IdKey, Title, Start, End, DeadNode) ->
    {ok, This}.
 
 get(Title, Key) ->
-	gen_server:call(Title, {get, Key}).
+	gen_server:call(Title, {get, Key},1000).
 
 put(Title, Key, Version, Val) ->
-	gen_server:call(Title, {put, Key, Version, Val}).
+	gen_server:call(Title, {put, Key, Version, Val},1000).
 
 close(Title) ->
     gen_server:call(Title, close).

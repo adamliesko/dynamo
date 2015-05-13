@@ -1,12 +1,12 @@
 -module (vector_clock).
--export ([new/1, fix/2, incr/2, prune/1, diff/2]).
+-export ([new/1, fix/2, incr/2, prune/1, diff/2, join/2]).
 
 -define(PRUNE_LIMIT, 5).
 
 new(Node) -> [{Node, 1}].
 
 %% resolve key value from two ppossibly different vector clocks
-fix({FClock, _FValues} = First, {SClock, _SValues} = Second) ->
+fix({FClock, FValues} = First, {SClock, SValues} = Second) ->
   ComparisonResult = diff(FClock,SClock),
   case ComparisonResult of
       leq ->
@@ -16,7 +16,7 @@ fix({FClock, _FValues} = First, {SClock, _SValues} = Second) ->
       eq ->
         First;
       _ ->
-        join(FClock,SClock, [])
+        {join(FClock,SClock), FValues ++ SValues}
   end.
 
 %% JOIN -> to be checked
@@ -38,25 +38,22 @@ fix({FClock, _FValues} = First, {SClock, _SValues} = Second) ->
 %%  Returns a list containing the sorted elements of the list TupleList1
 %%  Sorting is performed on the Nth element of the tuples. The sort is stable.
 
-join([{FirstNode, VersionFirst}|First], Second,Acc) ->
-%% simple pattern matching, check what keytake returns - it remove the element
-  case lists:keytake(FirstNode, 1, Second) of
-    {value, {FirstNode, VersionSecond}, SecondRest} when VersionFirst > VersionSecond ->
-      join(First,SecondRest,[{First,VersionFirst}|Acc]);
-    {value, {FirstNode, VersionSecond}, SecondRest}  when VersionSecond >= VersionFirst ->
-      join(First,SecondRest,[{First,VersionSecond}|Acc]);
-    _ ->
-      join(First,Second,[{First,VersionFirst}|Acc])
-  end;
+join(First, Second) ->
+  join([], First, Second).
 
-join([], Second, Acc) ->
-  SortedSecond = lists:keysort(1, Second),
-  lists:keymerge(1, Acc, SortedSecond);
+join(Acc, [], Second) -> lists:keysort(1, Acc ++ Second);
 
-join(First, [], Acc) ->
-  SortedFirst = lists:keysort(1, First),
-  lists:keymerge(1, Acc, SortedFirst).
+join(Acc, First, []) -> lists:keysort(1, Acc ++ First);
 
+join(Acc, [{FNode, FVersion}|FClock], SClock) ->
+  case lists:keytake(FNode, 1, SClock) of
+    {value, {FNode, SVersion}, ClockS} when FVersion > SVersion ->
+      join([{FNode,FVersion}|Acc],FClock,ClockS);
+    {value, {FNode, SVersion}, ClockS} ->
+      join([{FNode,SVersion}|Acc],FClock, ClockS);
+    false ->
+      join([{FNode,FVersion}|Acc],FClock,SClock)
+  end.
 
 incr(Node, []) ->
     [{Node, 1}];
@@ -80,9 +77,9 @@ diff(First,Second) ->
   Leq = leq(First,Second),
   Geq = leq(Second,First),
   if
-    Eq -> eq;
     Leq -> leq;
     Geq -> geq;
+    Eq -> eq;
     true -> to_join
   end.
 
@@ -97,24 +94,23 @@ leq(First, Second) ->
   (Shorter or LessOne) and LessOrEqAll.
 
 %% is there one , whcih is less
-less_one(First, Second) ->
+less_or_eq_all(First, Second) ->
   lists:all(fun({FirstNode,FirstVersion}) ->
   Returned = lists:keysearch(FirstNode, 1, Second),
   case Returned of
     {value,{_SecondNode,SecondVersion}} ->
       SecondVersion >= FirstVersion;
-    _ -> false
+    false -> false
   end end, First).
 %% are all less or equal?
 
-less_or_eq_all(First,Second) ->
-  lists:any(fun({FirstNode,FirstVersion}) ->
-  Returned = lists:keysearch(FirstNode, 1, Second),
-  case Returned of
-    {value,{_SecondNode,SecondVersion}} ->
-      not (SecondVersion == FirstVersion);
-    _-> false
-  end end, First).
+less_one(First,Second) ->
+  lists:any(fun({FNode, FVersion}) ->
+      case lists:keysearch(FNode, 1, Second) of
+        {value, {_Sec, SVersion}} -> FVersion /= SVersion;
+        false -> true
+      end
+    end, First).
 
 %% shorten prune truncate loooooooong vector clock
 prune(VectorClock) ->

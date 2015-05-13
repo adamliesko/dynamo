@@ -1,11 +1,10 @@
 -module(ring).
 
 -behaviour(gen_server).
--define(V_NODES, 64).
 %% API
 
 
--export([start_link/1, get_range/1, part_for_key/1, parts_for_node/2, get_oldies_parts/0, nodes/0 ,stop/0, get_nodes_for_key/1, join/2, launch_gossip/0, set_state/1, get_state/0 ]).
+-export([p_join/2,initx/1,join_parts/5,inside/5,init_state_setup/1,n_cons_nodes/3,new_parts/2,take_parts/7,start_link/1, get_range/1, part_for_key/1, parts_for_node/2, get_oldies_parts/0, nodes/0 ,stop/0, get_nodes_for_key/1, join/2, launch_gossip/0, set_state/1, get_state/0 ]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,code_change/3]).
 
 -record(ring, {n,q,parts, version, nodes,oldies}).
@@ -50,18 +49,19 @@ stop() ->
 
 init({N,Q}) ->
   CurrentNodes = erlang:nodes(), %% built_in_function truly, shadowing our own? duh
-  io:format("Current nodes ~p: ",[CurrentNodes]),
   LofNodes = length(CurrentNodes),
    {ok, State} = if
      %% join random existing nodes
     LofNodes > 0 ->
+
        join(get_rand_node(CurrentNodes), node());
     true -> {ok, init_state_setup({N,Q})}
    end,
    %% periodically gossip news in our little dynamic worlds
    timer:apply_interval(750, ring, launch_gossip, []),
    {ok, State}.
-
+initx({_N,_Q}) ->
+  #ring{parts = new_parts(10, one),q=10,n=3,	version=vector_clock:new(one),nodes=[one]}.
 launch_gossip() ->
   State = get_state(),
   CurrentNodes = ring:nodes() -- [node()],
@@ -145,7 +145,7 @@ new_parts(Quorom, Node) ->
 
 
 nth_power_of_two(Exp) ->
-  1 bsl Exp.
+  (2 bsl (Exp-1)).
 
 get_rand_node(List) ->
   %% this is truly random
@@ -260,37 +260,35 @@ n_cons_nodes(StartN, No, CNodes) ->
       false -> take_parts(CNode, Handouts, FromCurr, FromEvery, [H|Nodes], Parts, Taken)    % we are not alone, be nice and dont cut corners
     end.
 
+
+
 %% tail call so reverse, to check
 n_cons_nodes(_, 0, _, Acc, _) ->
-io:format("6"),
 lists:reverse(Acc);
 
 n_cons_nodes(FNode, No, [], Acc, CNodes) ->
-io:format("6"),
 n_cons_nodes(FNode, No, CNodes, Acc, CNodes);
 
 n_cons_nodes(found, N, [H|CNodes], Acc, Nodes) ->
-  io:format("6"),
+
   n_cons_nodes(found, N-1, CNodes, [H|Acc], Nodes);
 
 n_cons_nodes(StartN, N, [StartN|Nodes], Acc, CNodes) ->
-  io:format("6"),
+
   n_cons_nodes(found, N-1, Nodes, [StartN|Acc], CNodes);
 
 n_cons_nodes(StartN, No, [_|CNodes], Acc, Nodes) ->
-  io:format("6"),
+
   n_cons_nodes(StartN, No, CNodes, Acc, Nodes). %% sometimes it could help
 
 
 p_join(IncomingNode, #ring{n=N,q=Q,parts=Parts,version=Version,nodes=Oldies}) ->
     CurrNodes = lists:sort([IncomingNode|Oldies]),
-    io:format("~nQ:~p, CurrentNodes: ~p", [Q,CurrNodes]),
     NodesL = length(CurrNodes),
     ToHandout = nth_power_of_two(Q) div NodesL,
-    PerNode = ToHandout div (NodesL-1),
-    {CleanNodes,_} = lists:partition(fun(E) -> E =/= IncomingNode end, CurrNodes),
-    UP = take_parts(IncomingNode, ToHandout, PerNode, PerNode, CleanNodes, Parts, []),
-    io:format("RING VOLNY"),
+    PerNode = (ToHandout div (NodesL-1)),
+    {FreshNodes,_} = lists:partition(fun(E) -> E =/= IncomingNode end, CurrNodes),
+    UP = take_parts(IncomingNode, ToHandout, PerNode, PerNode, FreshNodes, Parts, []),
     #ring{n=N,q=Q, parts=UP,version = vector_clock:incr(node(), Version),
       nodes=CurrNodes,oldies=Parts}.
 
@@ -307,23 +305,19 @@ p_parts_for_node(Node, St, all) ->
             lists:merge(Accu, p_parts_for_node(X, St, master)) %% only a pseudo master
           end, [], PNodes).
 
-      p_nodes_for_key(Key, St) ->
-        io:format("1"),
-        HashedKey= erlang:phash2(Key),
-        Quorum = St#ring.q,
-        Part = select_part(HashedKey, Quorum),
-        io:format("2"),
-        p_nodes_for_part(Part, St).
+p_nodes_for_key(Key, St) ->
+    HashedKey= erlang:phash2(Key),
+    Quorum = St#ring.q,
+    Part = select_part(HashedKey, Quorum),
+    error_logger:info_msg("Part:~p, st:", [Part,St]),
+    p_nodes_for_part(Part, St).
 
-      p_nodes_for_part(Part, St) ->
-        Parts = St#ring.parts,
-        io:format("3"),
-        Quorum = St#ring.q,
-        N = St#ring.n,
-        io:format("4"),
-        {CNode,Part} = lists:nth(idx_for_part(Part, Quorum), Parts),
-        io:format("5"),
-        n_cons_nodes(CNode, N, St#ring.nodes).
+p_nodes_for_part(Part, St) ->
+    Parts = St#ring.parts,
+    Quorum = St#ring.q,
+    N = St#ring.n,
+    {CNode,Part} = lists:nth(idx_for_part(Part, Quorum), Parts),
+    n_cons_nodes(CNode, N, St#ring.nodes).
 
 select_part(HashedK,Q) ->
   RangeL = nth_power_of_two(32-Q), %% todo, extract? maybe?
