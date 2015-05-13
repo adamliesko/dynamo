@@ -12,7 +12,6 @@
 
 %% PUBLIC API
 
-
 get_state() ->
   gen_server:call(ring, get_state).
 
@@ -51,6 +50,7 @@ stop() ->
 
 init({N,Q}) ->
   CurrentNodes = erlang:nodes(), %% built_in_function truly, shadowing our own? duh
+  io:format("Current nodes ~p: ",[CurrentNodes]),
   LofNodes = length(CurrentNodes),
    {ok, State} = if
      %% join random existing nodes
@@ -68,7 +68,7 @@ launch_gossip() ->
   LofNodes = length(CurrentNodes),
      UpdatedState = if LofNodes > 0 ->
                      %% call random 2 nodes from ring, to share their state
-                     {GoodResponses,_} = gen_server:multi_call(get_rand_nodes(2, CurrentNodes), ring, {share_state, State}),
+                     {GoodResponses,_} = gen_server:multi_call(get_rand_nodes(2, CurrentNodes,[]), ring, {share_state, State}),
                      lists:foldl(fun(
                        {_,St}, empty) -> St;
                        %% if there are both states , they should join
@@ -150,14 +150,24 @@ nth_power_of_two(Exp) ->
 get_rand_node(List) ->
   %% this is truly random
   Index = random:uniform(length(List)),
-  [Node] = 	lists:nth(Index,List),
+  Node = 	lists:nth(Index,List),
   Node.
 
-get_rand_nodes(2, List) ->
-  %% pseudo random, not at uniform even :D, its faster at least
-  [H|T] = List,
-  [HB|_] = T,
-  [H|HB].
+  get_rand_nodes(0, _, Selected) ->
+    Selected;
+  get_rand_nodes(_, [], Selected) ->
+    Selected;
+
+  get_rand_nodes(N, CurrNodes, Selected) ->
+    {First, Second} = lists:split(random:uniform(length(CurrNodes)), CurrNodes),
+    if
+      length(Second) > 0 ->
+        [H|T] = Second,
+        get_rand_nodes(N-1, First ++ T, [H|Selected]);
+      true ->
+        [H|T] = First,
+        get_rand_nodes(N-1, T, [H|Selected])
+    end.
 
   %% n is from n r w params  - degree of replication
 join_states(First, Second) ->
@@ -267,11 +277,12 @@ n_cons_nodes(StartN, No, [_|CNodes], Acc, Nodes) ->
 
 p_join(IncomingNode, #ring{n=N,q=Q,parts=Parts,version=Version,nodes=Oldies}) ->
     CurrNodes = lists:sort([IncomingNode|Oldies]),
+    io:format("~nQ:~p, CurrentNodes: ~p", [Q,CurrNodes]),
     NodesL = length(CurrNodes),
     ToHandout = nth_power_of_two(Q) div NodesL,
     PerNode = ToHandout div (NodesL-1),
-    {FreshNodes,_} = [X || X <- CurrNodes, fun() -> X =/= IncomingNode end], %%todo, check
-    UP = take_parts(IncomingNode, ToHandout, PerNode, PerNode, FreshNodes, Parts, []),
+    {CleanNodes,_} = lists:partition(fun(E) -> E =/= IncomingNode end, CurrNodes),
+    UP = take_parts(IncomingNode, ToHandout, PerNode, PerNode, CleanNodes, Parts, []),
     #ring{n=N,q=Q, parts=UP,version = vector_clock:incr(node(), Version),
       nodes=CurrNodes,oldies=Parts}.
 

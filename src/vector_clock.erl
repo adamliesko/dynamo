@@ -1,5 +1,5 @@
 -module (vector_clock).
--export ([new/1, fix/2, incr/2, prune/1]).
+-export ([new/1, fix/2, incr/2, prune/1, diff/2]).
 
 -define(PRUNE_LIMIT, 5).
 
@@ -117,7 +117,7 @@ less_or_eq_all(First,Second) ->
   end end, First).
 
 %% shorten prune truncate loooooooong vector clock
-prune(VectorClock) -> 
+prune(VectorClock) ->
 VClockLength =  length(VectorClock),
  if VClockLength  > ?PRUNE_LIMIT ->
   ContextPos = 2,

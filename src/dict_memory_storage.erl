@@ -1,9 +1,8 @@
 -module (dict_memory_storage).
--export ([open/2, close/1, get/2, put/4,fold/3]).
+-export ([open/2, close/1, get/2, put/4,fold/3,info/1]).
 
 open(_Name,_Dir) ->
-	L = [{"1", {1,["A"]}}],
- dict:from_list(L).
+dict:new().
 close(_StorageTable) -> ok.
 
 put(Key, Version, Val, StorageTable) ->
@@ -19,3 +18,5 @@ fold(Cmd, Storehouse, Acc) ->
   dict:fold(fun(Key, {Context, [Value]}, Aku) ->
       Cmd({Key, Context, Value}, Aku)
     end, Acc, Storehouse).
+		
+info(Dict) -> dict:fetch_keys(Dict).
