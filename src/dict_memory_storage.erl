@@ -1,9 +1,8 @@
--module (dict_memory_storage).
--export ([open/2, close/1, get/2, put/4,fold/3]).
-
-
 %% Description %%
 %% Dead simple in memory storage module implemented as a erlang:dict(). Started by respectful nodes of dynamo cluster.
+-module (dict_memory_storage).
+
+-export ([open/2, close/1, get/2, put/4,fold/3]).
 
 % Initiates new dictionary
 open(_Name,_Dir) ->

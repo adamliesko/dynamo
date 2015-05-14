@@ -1,13 +1,15 @@
 %% Description %%
 %% Main application startup module. It includes pinging of the jointo node and starting up a dynamo supervisor.
-
 -module(dynamo_app).
+
 -behaviour(application).
 
 %% API.
 -export([start/2]).
 -export([stop/1]).
 
+%% starts up the cowboy server with carefully selected default - if on a Master node.
+%% either way - starts up the dynamo node, and tries to ping the Master node/jointo node
 start(_Type, Args) ->
 	Node = node(),
 	Master = list_to_atom("dynamo@127.0.0.1"),

@@ -1,8 +1,8 @@
 % Description %
 % Director server as a central coordinating module which accepts calls from Cowboy API and forwards them to the
 % underlaying modules - ring, storage, vector clock etc.
-
 -module(director).
+
 -behaviour(gen_server).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -20,7 +20,7 @@ start_link({N,R,W}) ->
 stop() ->
     gen_server:call(director, stop).
 
-% api for getting
+% api for getting a key
 get(Key) ->
   gen_server:call(director, {get, Key}).
 
