@@ -1,35 +1,44 @@
+% Description %
+% Director server as a central coordinating module which accepts calls from Cowboy API and forwards them to the
+% underlaying modules - ring, storage, vector clock etc.
+
 -module(director).
 -behaviour(gen_server).
+
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([start_link/1, get/1, put/3,stop/0]).
-%% n - degree of replication
-%%
-%% r - consistency between replicas - min number of nodes for read successful operation
-%% w - consistency between replicas - min number of nodes for write successful operation
-%% r+w > n quorum like system
+
+%% N - degree of replication
+%% R - number of  req. successful replies during read operation
+%% W - number of  req. successful replies during read operation
 -record(director, {n,r,w}).
 
+% initiates gen server with params n,r,w
 start_link({N,R,W}) ->
   gen_server:start_link({local, director}, ?MODULE, {N,R,W}, []).
+
 stop() ->
     gen_server:call(director, stop).
+
+% api for getting
 get(Key) ->
   gen_server:call(director, {get, Key}).
 
+% api for putting a key, with option to specify context
 put(Key, Context, Val) ->
   gen_server:call(director, {put, Key, Context, Val}).
 
+% initialize new director record and sets state
 init({N,R,W}) ->
     {ok, #director{n=N,r=R,w=W}}.
 
+% Gen server calls - important stuff  is inside p_XXX methods
 handle_call({put, Key, Context, Val}, _From, State) ->
   {reply, p_put(Key, Context, Val, State), State};
 handle_call({get, Key}, _From, State) ->
   {reply, {ok, p_get(Key, State)}, State};
-
 handle_call(stop, _From, State) ->
   {stop, shutdown, ok, State}.
-
 handle_cast(_Msg, State) ->
     {noreply, State}.
 handle_info(_Inf, State) ->
@@ -41,16 +50,13 @@ code_change(_Old, State, _New) ->
 
 p_put(Key, Context, Val, #director{w=W,n=_N}) ->
   Nodes = ring:get_nodes_for_key(Key),
-  io:format("nodes: ~p~n", [Nodes]),
   Part = ring:part_for_key(Key),
-  io:format("parts: ~p~n", [Part]),
   Incr=vector_clock:incr(node(), [{node(),Context}]),
   Command = fun(Node) ->
     storage:put({list_to_atom(lists:concat([storage_, Part])),Node}, Key, Incr, Val)
   end,
 
   {GoodNodes, _Bad} = check_nodes(Command, Nodes),
-  io:format("g: ~p , b: ~p",[GoodNodes, _Bad]),
   %% check consistency init  param W
   if
     length(GoodNodes) >= W -> {ok,{length(GoodNodes)}};
@@ -64,7 +70,6 @@ p_get(Key, #director{r=R,n=_N}) ->
     storage:get({list_to_atom(lists:concat([storage_, Part])), Node}, Key)
   end,
   {GoodNodes, Bad} = check_nodes(Command, Nodes),
-  io:format("g: ~p , b: ~p",[GoodNodes, Bad]),
   NotFound = check_not_found(Bad,R),
     %% check consistency init  param R
   if

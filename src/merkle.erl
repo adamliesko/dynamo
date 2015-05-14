@@ -5,21 +5,15 @@
 -record(node, {hash, middle, left, right}).
 -record(leaf, {hash, key}).
 
--define(OFFSET_BASIS, 2166136261).
--define(FNV_PRIME, 16777619).
-
 init(Min, Max) ->
 #root{min=Min,max=Max,node=#node{hash=empty,middle=(Min+Max) div 2,left=empty,right=empty}}.
 
-% Insert item to tree
-insert(Key, Value, Root = #root{max=Max,min=Min,node=Node}) ->
-  Root#root{node=insert(hash(Key), Key, Value, Min, Max, Node)}.
+insert(Key, Value, #root{max=Max,min=Min,node=Node}) ->
+  #root{node=insert(hash(Key), Key, Value, Min, Max, Node)}.
 
-% Problem when node is empty
 insert(_, Key, Value, _, _, empty) ->
   #leaf{hash=hash(Value),key=Key};
 
-% Problem when node is inner node
 insert(KeyHash, Key, Value, Min, Max, Node) when is_record(Node, node) ->
   H = hash(Key),
   if (H < Node#node.middle) ->
@@ -30,7 +24,6 @@ insert(KeyHash, Key, Value, Min, Max, Node) when is_record(Node, node) ->
     Node#node{left=Node#node.left,right=Right,hash=hash({hash(Node#node.left),hash(Right)})}
   end;
 
-% Problem when node is leaf
 insert(_, Key, Value, _, _, Leaf) when is_record(Leaf, leaf) and (Key==Leaf#leaf.key) ->
   #leaf{hash=hash(Value),key=Key}; %replace leaf
 insert(KeyHash, Key, Value, Min, Max, Leaf) when is_record(Leaf, leaf) ->
@@ -42,7 +35,6 @@ insert(KeyHash, Key, Value, Min, Max, Leaf) when is_record(Leaf, leaf) ->
                end,
     insert(KeyHash, Key, Value, Min, Max, SemiNode).
 
-% Delete item from tree
 delete(Key, Root = #root{node=Node}) ->
   Root#root{node=delete(hash(Key), Key, Node)}.
 
@@ -52,11 +44,9 @@ delete(_, _, Leaf) when is_record(Leaf, leaf) -> Leaf;
 delete(KeyHash, Key, Node) when is_record(Node, node) and (KeyHash < Node#node.middle) -> Node#node{left=delete(KeyHash,Key,Node#node.left),right=Node#node.right};
 delete(KeyHash, Key, Node) when is_record(Node, node) -> Node#node{left=Node#node.left, right=delete(KeyHash,Key,Node#node.right)}.
 
-% Diff two roots
 diff(#root{node=NodeA}, #root{node=NodeB}) ->
   diff(NodeA, NodeB);
 
-% Problem with empty one
 diff(empty, empty) -> [];
 diff(empty, Leaf) when is_record(Leaf, leaf) -> [Leaf#leaf.key];
 diff(Leaf, empty) when is_record(Leaf, leaf) -> [Leaf#leaf.key];
@@ -90,8 +80,11 @@ diff(LeafA, LeafB) when is_record(LeafA, leaf) and is_record(LeafB, leaf) ->
      true -> [LeafA#leaf.key,LeafB#leaf.key]
   end.
 
-%%%% Internal functions %%%%
-hash(#root{node=Node}) -> hash(Node);
-hash(#node{hash=Hash}) -> Hash;
-hash(#leaf{hash=Hash}) -> Hash;
+%% INTERNAL HASH fncs
+hash(#root{node=Node}) ->
+ hash(Node);
+hash(#node{hash=Hash}) ->
+ Hash;
+hash(#leaf{hash=Hash}) ->
+ Hash;
 hash(N) -> erlang:phash2(N).

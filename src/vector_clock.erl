@@ -19,8 +19,6 @@ fix({FClock, FValues} = First, {SClock, SValues} = Second) ->
         {join(FClock,SClock), FValues ++ SValues}
   end.
 
-%% JOIN -> to be checked
-
 %% keytake(Key, N, TupleList1) -> {value, Tuple, TupleList2} | false
 %%  Searches the list of tuples TupleList1 for a tuple whose Nth element
 %%  compares equal to Key. %% Returns {value, Tuple, TupleList2} if such a tuple
