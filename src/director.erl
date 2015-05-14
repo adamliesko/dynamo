@@ -44,7 +44,7 @@ p_put(Key, Context, Val, #director{w=W,n=_N}) ->
   io:format("nodes: ~p~n", [Nodes]),
   Part = ring:part_for_key(Key),
   io:format("parts: ~p~n", [Part]),
-  Incr=vector_clock:incr(node(), [Context]),
+  Incr=vector_clock:incr(node(), [{node(),Context}]),
   Command = fun(Node) ->
     storage:put({list_to_atom(lists:concat([storage_, Part])),Node}, Key, Incr, Val)
   end,
