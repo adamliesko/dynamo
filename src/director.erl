@@ -88,10 +88,11 @@ read_replies([FirstReply|Replies]) ->
   end.
 
 check_nodes(Command, Nodes) ->
+io:format("NODES ARE: ~p", [Nodes]),
   Replies = reader:map_nodes(Command,Nodes),
   GoodReplies = [X|| X <- Replies,get_ok_replies(X) ],
  BadReplies = lists:subtract(Replies,GoodReplies),
-  GoodValues = [get_value(X) || X <- GoodReplies],
+  GoodValues = lists:map(fun get_value/1, GoodReplies),
   {GoodValues, BadReplies}.
 
 get_value({_, {ok, Val}}) ->
