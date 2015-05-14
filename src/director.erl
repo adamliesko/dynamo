@@ -41,13 +41,16 @@ code_change(_Old, State, _New) ->
 
 p_put(Key, Context, Val, #director{w=W,n=_N}) ->
   Nodes = ring:get_nodes_for_key(Key),
+  io:format("nodes: ~p~n", [Nodes]),
   Part = ring:part_for_key(Key),
+  io:format("parts: ~p~n", [Part]),
   Incr=vector_clock:incr(node(), [Context]),
   Command = fun(Node) ->
     storage:put({list_to_atom(lists:concat([storage_, Part])),Node}, Key, Incr, Val)
   end,
 
   {GoodNodes, _Bad} = check_nodes(Command, Nodes),
+  io:format("g: ~p , b: ~p",[GoodNodes, _Bad]),
   %% check consistency init  param W
   if
     length(GoodNodes) >= W -> {ok,{length(GoodNodes)}};
@@ -61,6 +64,7 @@ p_get(Key, #director{r=R,n=_N}) ->
     storage:get({list_to_atom(lists:concat([storage_, Part])), Node}, Key)
   end,
   {GoodNodes, Bad} = check_nodes(Command, Nodes),
+  io:format("g: ~p , b: ~p",[GoodNodes, Bad]),
   NotFound = check_not_found(Bad,R),
     %% check consistency init  param R
   if
@@ -82,13 +86,13 @@ check_not_found(BadReplies, R) ->
   end.
 
 read_replies([FirstReply|Replies]) ->
+io:format("FR: ~p~n, R:~p~n",[FirstReply,Replies]),
   case FirstReply of
     not_found -> not_found;
-    _ -> lists:foldr( fun vector_clock:fix/2, FirstReply, Replies)
+    _ -> lists:foldr(fun vector_clock:fix/2, FirstReply, Replies)
   end.
 
 check_nodes(Command, Nodes) ->
-io:format("NODES ARE: ~p", [Nodes]),
   Replies = reader:map_nodes(Command,Nodes),
   GoodReplies = [X|| X <- Replies,get_ok_replies(X) ],
  BadReplies = lists:subtract(Replies,GoodReplies),
@@ -105,7 +109,6 @@ get_ok_replies({_, ok}) ->
   true;
 get_ok_replies(_Reply) ->
   false.
-
 
 %%filter(Set1, Fnc) ->
 %%  [X || X <- Set1, Fnc(X)].

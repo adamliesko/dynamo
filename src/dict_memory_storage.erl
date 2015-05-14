@@ -6,6 +6,7 @@ dict:new().
 close(_StorageTable) -> ok.
 
 put(Key, Version, Val, StorageTable) ->
+io:format("putting"),
 	{ok, dict:store(Key, {Version,[Val]}, StorageTable)}.
 
 get(Key, StorageTable) ->

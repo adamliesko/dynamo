@@ -1,4 +1,4 @@
--name dynamo@127.0.0.1
+-name dynamo2@127.0.0.1
 -setcookie supersecrettopultra
 
 -connect_all true

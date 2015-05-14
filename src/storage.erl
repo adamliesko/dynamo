@@ -86,7 +86,7 @@ synchronize(First,Second) ->
         put(Second,Key,Version,Val);
       %% none, we need to resolve it from vector_clock
       _ ->
-        {Version,[Val|_]=Vals} = vector_clock:fix(FirstReply, SecondReply),
+        {Version,[Val|_]=Vals} = vector_clock:resolve(FirstReply, SecondReply),
         LengthV = length(Vals),
         if LengthV == 1 ->
           put(Second,Key,Version,Val),

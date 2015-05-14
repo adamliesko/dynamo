@@ -40,10 +40,10 @@ fix({FClock, FValues} = First, {SClock, SValues} = Second) ->
 
 join(First, Second) ->
   join([], First, Second).
-
-join(Acc, [], Second) -> lists:keysort(1, Acc ++ Second);
-
-join(Acc, First, []) -> lists:keysort(1, Acc ++ First);
+join(Acc, [], Second) -> 
+lists:keysort(1, Acc ++ Second);
+join(Acc, First, [] )-> 
+lists:keysort(1, Acc ++ First);
 
 join(Acc, [{FNode, FVersion}|FClock], SClock) ->
   case lists:keytake(FNode, 1, SClock) of
@@ -55,15 +55,13 @@ join(Acc, [{FNode, FVersion}|FClock], SClock) ->
       join([{FNode,FVersion}|Acc],FClock,SClock)
   end.
 
-incr(Node, []) ->
-    [{Node, 1}];
 
 incr(Node, [{Node, Context}|VectorClocks]) ->
   	[{Node, Context+1}|VectorClocks];
-
 incr(Node, [VectorClock|VectorClocks]) ->
-  	[VectorClock|incr(Node, VectorClocks)].
-
+  	[VectorClock|incr(Node, VectorClocks)];
+    incr(Node, []) ->
+    [{Node, 1}].
 equal(First,Second) ->
     if length(First) == length(Second) ->
       lists:all(fun(FirstClock) -> lists:member(FirstClock,Second) end, First);
