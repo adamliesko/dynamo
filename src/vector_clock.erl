@@ -1,5 +1,5 @@
 -module (vector_clock).
--export ([new/1, fix/2, incr/2, prune/1, diff/2, join/2]).
+-export ([new/1, fix/2, incr/2, prune/1, diff/2, join/2,leq/2,equal/2]).
 
 -define(PRUNE_LIMIT, 5).
 

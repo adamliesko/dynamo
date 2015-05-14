@@ -61,12 +61,24 @@ p_get(Key, #director{r=R,n=_N}) ->
     storage:get({list_to_atom(lists:concat([storage_, Part])), Node}, Key)
   end,
   {GoodNodes, Bad} = check_nodes(Command, Nodes),
-  NotFound = length(Bad) > 0,
+  NotFound = check_not_found(Bad,R),
     %% check consistency init  param R
   if
     length(GoodNodes) >= R -> {ok, read_replies(GoodNodes)};
     NotFound -> {ok, not_found};
     true -> {failure,{length(GoodNodes)}}
+  end.
+
+check_not_found(BadReplies, R) ->
+  Total = lists:foldl(fun({_, Elem}, Aku) -> 
+    case Elem of
+      not_found -> Aku+1;
+      _ -> Aku
+    end
+  end, 0, BadReplies),
+  if
+    Total >= R -> true;
+    true -> false
   end.
 
 read_replies([FirstReply|Replies]) ->
