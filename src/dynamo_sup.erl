@@ -18,7 +18,7 @@ start_link(Args) ->
 %% for ensuring quorum in app ring
 init({{N,R,W},StorageArgs}) ->
 	Procs = [
-	  {ring, {ring,start_link,[{N,6}]}, permanent, 1000, worker, [ring]},
+	  {ring, {ring,start_link,[{N,?Q}]}, permanent, 1000, worker, [ring]},
   	{director, {director,start_link,[{N,R,W}]}, permanent, 1000, worker, [director]},
   	{storage_sup, {storage_sup,start_link,[StorageArgs]}, permanent, 10000, supervisor, [storage_sup]}
 	],

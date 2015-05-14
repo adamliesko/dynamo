@@ -51,7 +51,9 @@ code_change(_Old, State, _New) ->
 p_put(Key, Context, Val, #director{w=W,n=_N}) ->
   Nodes = ring:get_nodes_for_key(Key),
   Part = ring:part_for_key(Key),
-  Incr=vector_clock:incr(node(), [{node(),Context}]),
+  Incr = if Context == [] -> vector_clock:incr(node(), []);
+       true ->  vector_clock:incr(node(), [{node(),Context}])
+  end,
   Command = fun(Node) ->
     storage:put({list_to_atom(lists:concat([storage_, Part])),Node}, Key, Incr, Val)
   end,
