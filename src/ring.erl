@@ -1,17 +1,15 @@
 -module(ring).
 
 -behaviour(gen_server).
--define(V_NODES, 64).
 %% API
 
 
--export([start_link/1, get_range/1, part_for_key/1, parts_for_node/2, get_oldies_parts/0, nodes/0 ,stop/0, get_nodes_for_key/1, join/2, launch_gossip/0, set_state/1, get_state/0 ]).
+-export([p_join/2,join_parts/5,inside/5,init_state_setup/1,n_cons_nodes/3,new_parts/2,start_link/1, get_range/1, part_for_key/1, parts_for_node/2, get_oldies_parts/0, nodes/0 ,stop/0, get_nodes_for_key/1, join/2, launch_gossip/1, set_state/1, get_state/0 ]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,code_change/3]).
 
 -record(ring, {n,q,parts, version, nodes,oldies}).
 
 %% PUBLIC API
-
 
 get_state() ->
   gen_server:call(ring, get_state).
@@ -20,7 +18,7 @@ set_state(State) ->
   gen_server:call(ring, {set_state, State}).
 
 start_link({N,Q}) ->
-  gen_server:start({local, ring}, ?MODULE, {N,Q}, []).
+  gen_server:start_link({local, ring}, ?MODULE, {N,Q}, []).
 
 %% get the range of hash keys which belong to a certain partition
 get_range(Part) ->
@@ -59,28 +57,27 @@ init({N,Q}) ->
     true -> {ok, init_state_setup({N,Q})}
    end,
    %% periodically gossip news in our little dynamic worlds
-   timer:apply_interval(750, ring, launch_gossip, []),
+   timer:apply_after(random:uniform(1000) + 5000, ring, launch_gossip, [random:seed()]),
    {ok, State}.
 
-launch_gossip() ->
+launch_gossip({F, S, T}) ->
+  random:seed(F,S,T),
   State = get_state(),
-  CurrentNodes = ring:nodes() -- [node()],
+  CurrentNodes = lists:filter(fun(N) -> N /= node() end, ring:nodes()),
+  error_logger:info_msg("~nLaunching gossip  on Node : ~p, with current nodes expect our node:~p~n,", [CurrentNodes]),
   LofNodes = length(CurrentNodes),
-     UpdatedState = if LofNodes > 0 ->
-                     %% call random 2 nodes from ring, to share their state
-                     {GoodResponses,_} = gen_server:multi_call(get_rand_nodes(2, CurrentNodes), ring, {share_state, State}),
-                     lists:foldl(fun(
-                       {_,St}, empty) -> St;
-                       %% if there are both states , they should join
-                     ({_,St}, OtherState) ->
-                       join_states(OtherState, St)
-                      end, empty, GoodResponses);
-                     true -> State
+     UpdatedState = if 
+      LofNodes > 0 ->
+                     Node = get_rand_node(CurrentNodes),
+                     OtherState = gen_server:call({ring, Node}, {share_state, State}),
+        join_states(OtherState, State);
+      true -> State
      end,
-     set_state(UpdatedState).
+     set_state(UpdatedState),
+     timer:apply_after(5000, ring, launch_gossip, [random:seed()]).
 
 %% adding new node
-handle_call({join, NewNode}, _From, State) ->
+handle_call({join, NewNode}, {_, _From}, State) ->
   UpdatedS = p_join(NewNode, State),
     {reply, {ok, UpdatedS}, UpdatedS};
 
@@ -143,25 +140,18 @@ init_state_setup({N,Q}) ->
 new_parts(Quorom, Node) ->
   [{Node,Part} || Part <-  lists:seq(1, nth_power_of_two(32), nth_power_of_two(32-Quorom))].
 
-
 nth_power_of_two(Exp) ->
-  1 bsl Exp.
+  (2 bsl (Exp-1)).
 
 get_rand_node(List) ->
   %% this is truly random
   Index = random:uniform(length(List)),
-  [Node] = 	lists:nth(Index,List),
+  Node = 	lists:nth(Index,List),
   Node.
-
-get_rand_nodes(2, List) ->
-  %% pseudo random, not at uniform even :D, its faster at least
-  [H|T] = List,
-  [HB|_] = T,
-  [H|HB].
 
   %% n is from n r w params  - degree of replication
 join_states(First, Second) ->
-    Nodes = lists:merge(First#ring.nodes, Second#ring.nodes),
+    Nodes = lists:usort(lists:merge(First#ring.nodes, Second#ring.nodes)),
     Parts = join_parts(First#ring.parts,Second#ring.parts, [], First#ring.n, Nodes),
     #ring{nodes=Nodes, version=vector_clock:join(First#ring.version, Second#ring.version), parts=Parts, n= First#ring.n, q=First#ring.q}.
 
@@ -174,9 +164,7 @@ join_parts([], S, Acc, _, _) ->
   join_parts(F, [], Acc, _, _) ->
  lists:keysort(2, F ++ Acc);
 
-
-
-      %% n is from n r w params  - degree of replication
+%% n is from n r w params  - degree of replication
 %% join partitions , if same, follow further down the line, if not , choose wisely
 join_parts([{FNode,No}|FPart], [{SNode,No}|SPart], Acc, N, CurrentNodes) ->
       if
@@ -190,7 +178,6 @@ join_parts([{FNode,No}|FPart], [{SNode,No}|SPart], Acc, N, CurrentNodes) ->
             %% this i am noot sure
           end
       end.
-
 
 %% n is from n r w params  - degree of replication - we check if one part
 % is inside another
@@ -234,26 +221,12 @@ n_cons_nodes(StartN, No, CNodes) ->
         true -> n_cons_nodes(StartN, No, CNodes, [], CNodes)
   end.
 
-  take_parts(_, 0, _, _, _, Parts, Taken) ->
-    lists:keysort(2, Parts ++ Taken);
-
-  take_parts(CNode, Handouts, 0, PerNode, [H|Nodes], Parts, Taken) ->
-    if
-      length(Nodes) > 0 -> take_parts(CNode, Handouts, PerNode, PerNode, Nodes,Parts,Taken);
-      true -> take_parts(CNode, Handouts, PerNode, PerNode, [H|Nodes], Parts,Taken)
-    end;
-
-  take_parts(CNode, Handouts, FromCurr, FromEvery, [H|Nodes], Parts, Taken) ->
-    case lists:keytake(H, 1, Parts) of
-      {value, {H, Part}, UpdParts} ->
-        take_parts(CNode, Handouts-1, FromCurr-1, FromEvery, [H|Nodes], UpdParts, [{CNode,Part}|Taken]);
-      false -> take_parts(CNode, Handouts, FromCurr, FromEvery, [H|Nodes], Parts, Taken)    % we are not alone, be nice and dont cut corners
-    end.
-
 %% tail call so reverse, to check
-n_cons_nodes(_, 0, _, Acc, _) -> lists:reverse(Acc);
+n_cons_nodes(_, 0, _, Acc, _) ->
+lists:reverse(Acc);
 
-n_cons_nodes(FNode, No, [], Acc, CNodes) -> n_cons_nodes(FNode, No, CNodes, Acc, CNodes);
+n_cons_nodes(FNode, No, [], Acc, CNodes) ->
+  n_cons_nodes(FNode, No, CNodes, Acc, CNodes);
 
 n_cons_nodes(found, N, [H|CNodes], Acc, Nodes) ->
   n_cons_nodes(found, N-1, CNodes, [H|Acc], Nodes);
@@ -265,16 +238,51 @@ n_cons_nodes(StartN, No, [_|CNodes], Acc, Nodes) ->
   n_cons_nodes(StartN, No, CNodes, Acc, Nodes). %% sometimes it could help
 
 
+take_parts(ToNode, Parts, Nodes, {_N,Q}) ->
+  GivenToks = nth_power_of_two(Q) div length(Nodes),
+  FromEvery = GivenToks div (length(Nodes)-1),
+  case lists:keysearch(ToNode, 1, Parts) of
+    {value, _} -> Parts;
+    false -> if
+      FromEvery == 0 -> take_parts(ToNode, GivenToks, 1, Parts, Nodes, []);
+      true -> take_parts(ToNode, GivenToks, FromEvery, Parts, Nodes, [])
+    end
+  end.
+
+take_parts(_, _, _, Parts, [], Taken) ->
+  lists:keysort(2, Parts ++ Taken);  
+
+take_parts(_ToNode, GivenToks, _FromEvery, Parts, _Nodes, Taken) when length(Taken) == GivenToks ->
+  timer:sleep(100),
+  lists:keysort(2, Parts ++ Taken);
+
+% skip ToNode
+take_parts(ToNode, GivenToks, FromEvery, Parts, [ToNode|Nodes], Taken) ->
+  take_parts(ToNode, GivenToks, FromEvery, Parts, Nodes, Taken);
+
+take_parts(ToNode, GivenToks, FromEvery, Parts, [FromNode|Nodes], Taken) ->
+  {NewParts,NewTaken} = take_n(FromEvery, FromNode, ToNode, Parts, Taken),
+  take_parts(ToNode, GivenToks, FromEvery, NewParts, Nodes, NewTaken).
+
+
+take_n(0, _CurrNode, _ToNode, Parts, Taken) -> {Parts,Taken};
+
+take_n(N, CurrNode, ToNode, Parts, Taken) ->
+  case lists:keytake(CurrNode, 1, Parts) of
+    {value, {_,P}, NewParts} -> 
+      case lists:keytake(CurrNode, 1, NewParts) of
+        {value, _, _} -> take_n(N-1, CurrNode, ToNode, NewParts, [{ToNode,P}|Taken]);
+        false -> {Parts,Taken}
+      end;
+    false -> {Parts,Taken}
+   end.
+
+
 p_join(IncomingNode, #ring{n=N,q=Q,parts=Parts,version=Version,nodes=Oldies}) ->
     CurrNodes = lists:sort([IncomingNode|Oldies]),
-    NodesL = length(CurrNodes),
-    ToHandout = nth_power_of_two(Q) div NodesL,
-    PerNode = ToHandout div (NodesL-1),
-    {FreshNodes,_} = [X || X <- CurrNodes, fun() -> X =/= IncomingNode end], %%todo, check
-    UP = take_parts(IncomingNode, ToHandout, PerNode, PerNode, FreshNodes, Parts, []),
+    UP = take_parts(IncomingNode, Parts, CurrNodes,{N,Q}),
     #ring{n=N,q=Q, parts=UP,version = vector_clock:incr(node(), Version),
       nodes=CurrNodes,oldies=Parts}.
-
 
 p_parts_for_node(Node, St, master) ->
         Parts = St#ring.parts,
@@ -288,18 +296,19 @@ p_parts_for_node(Node, St, all) ->
             lists:merge(Accu, p_parts_for_node(X, St, master)) %% only a pseudo master
           end, [], PNodes).
 
-      p_nodes_for_key(Key, St) ->
-        HashedKey= erlang:phash2(Key),
-        Quorum = St#ring.q,
-        Part = select_part(HashedKey, Quorum),
-        p_nodes_for_part(Part, St).
+p_nodes_for_key(Key, St) ->
+    HashedKey= erlang:phash2(Key),
+    Quorum = St#ring.q,
+    Part = select_part(HashedKey, Quorum),
+    error_logger:info_msg("Part:~p, st: ~p", [Part,St]),
+    p_nodes_for_part(Part, St).
 
-      p_nodes_for_part(Part, St) ->
-        Parts = St#ring.parts,
-        Quorum = St#ring.q,
-        N = St#ring.n,
-        {CNode,Part} = lists:nth(idx_for_part(Part, Quorum), Parts),
-        n_cons_nodes(CNode, N, St#ring.nodes).
+p_nodes_for_part(Part, St) ->
+    Parts = St#ring.parts,
+    Quorum = St#ring.q,
+    N = St#ring.n,
+    {CNode,Part} = lists:nth(idx_for_part(Part, Quorum), Parts),
+    n_cons_nodes(CNode, N, St#ring.nodes).
 
 select_part(HashedK,Q) ->
   RangeL = nth_power_of_two(32-Q), %% todo, extract? maybe?

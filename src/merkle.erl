@@ -5,21 +5,16 @@
 -record(node, {hash, middle, left, right}).
 -record(leaf, {hash, key}).
 
--define(OFFSET_BASIS, 2166136261).
--define(FNV_PRIME, 16777619).
-
 init(Min, Max) ->
 #root{min=Min,max=Max,node=#node{hash=empty,middle=(Min+Max) div 2,left=empty,right=empty}}.
 
 % Insert item to tree
-insert(Key, Value, Root = #root{max=Max,min=Min,node=Node}) ->
-  Root#root{node=insert(hash(Key), Key, Value, Min, Max, Node)}.
+insert(Key, Value, #root{max=Max,min=Min,node=Node}) ->
+  #root{node=insert(hash(Key), Key, Value, Min, Max, Node)}.
 
-% Problem when node is empty
 insert(_, Key, Value, _, _, empty) ->
   #leaf{hash=hash(Value),key=Key};
 
-% Problem when node is inner node
 insert(KeyHash, Key, Value, Min, Max, Node) when is_record(Node, node) ->
   H = hash(Key),
   if (H < Node#node.middle) ->
@@ -56,7 +51,6 @@ delete(KeyHash, Key, Node) when is_record(Node, node) -> Node#node{left=Node#nod
 diff(#root{node=NodeA}, #root{node=NodeB}) ->
   diff(NodeA, NodeB);
 
-% Problem with empty one
 diff(empty, empty) -> [];
 diff(empty, Leaf) when is_record(Leaf, leaf) -> [Leaf#leaf.key];
 diff(Leaf, empty) when is_record(Leaf, leaf) -> [Leaf#leaf.key];
@@ -69,14 +63,14 @@ diff(NodeA, NodeB)  when is_record(NodeA, node) and is_record(NodeB, node) ->
   if NodeA#node.hash == NodeB#node.hash -> [];
     true -> diff(NodeA#node.left,NodeB#node.left) ++ diff(NodeA#node.right,NodeB#node.right)
   end;
-  
+
 % Problem Leaf and Node
 diff(Node, Leaf) when is_record(Node, node) and is_record(Leaf, leaf) ->
   H = hash(Leaf#leaf.key),
   if H < Node#node.middle -> diff(Node#node.left, Leaf) ++ diff(empty, Node#node.right);
      true -> diff(Node#node.right, Leaf) ++ diff(empty, Node#node.left)
   end;
-  
+
 diff(Leaf, Node) when is_record(Node, node) and is_record(Leaf, leaf) ->
   H = hash(Leaf#leaf.key),
   if H < Node#node.middle -> diff(Leaf, Node#node.left) ++ diff(empty, Node#node.right);
