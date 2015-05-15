@@ -10,8 +10,8 @@ init(Req, Opts) ->
 	Req2 = case cowboy_req:method(Req) of
 		<<"GET">> ->
 			process_get_request(Req);
-		<<"POST">> ->
-			process_post_request(Req);
+		<<"PUT">> ->
+			process_put_request(Req);
 		(_) ->
 			cowboy_req:reply(405, Req)
 	end,
@@ -38,7 +38,7 @@ process_get_request(Req) ->
 	    	cowboy_req:reply(400, [], <<"Missing key parameter.">>, Req)
  	 end.
 
-process_post_request(Req) ->
+process_put_request(Req) ->
 	{ok, Params, _Req2}  = cowboy_req:body_qs(Req),
 	Key = proplists:get_value(<<"key">>, Params),
 	Value = proplists:get_value(<<"value">>, Params),

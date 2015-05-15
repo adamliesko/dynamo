@@ -64,7 +64,7 @@ launch_gossip({F, S, T}) ->
   random:seed(F,S,T),
   State = get_state(),
   CurrentNodes = lists:filter(fun(N) -> N /= node() end, ring:nodes()),
-  error_logger:info_msg("~nLaunching gossip with current nodes expec our node:~p~n,", [CurrentNodes]),
+  error_logger:info_msg("~nLaunching gossip  on Node : ~p, with current nodes expect our node:~p~n,", [CurrentNodes]),
   LofNodes = length(CurrentNodes),
      UpdatedState = if 
       LofNodes > 0 ->
@@ -74,7 +74,7 @@ launch_gossip({F, S, T}) ->
       true -> State
      end,
      set_state(UpdatedState),
-     timer:apply_after(random:uniform(1000) + 5000, ring, launch_gossip, [random:seed()]).
+     timer:apply_after(5000, ring, launch_gossip, [random:seed()]).
 
 %% adding new node
 handle_call({join, NewNode}, {_, _From}, State) ->
@@ -221,6 +221,23 @@ n_cons_nodes(StartN, No, CNodes) ->
         true -> n_cons_nodes(StartN, No, CNodes, [], CNodes)
   end.
 
+%% tail call so reverse, to check
+n_cons_nodes(_, 0, _, Acc, _) ->
+lists:reverse(Acc);
+
+n_cons_nodes(FNode, No, [], Acc, CNodes) ->
+  n_cons_nodes(FNode, No, CNodes, Acc, CNodes);
+
+n_cons_nodes(found, N, [H|CNodes], Acc, Nodes) ->
+  n_cons_nodes(found, N-1, CNodes, [H|Acc], Nodes);
+
+n_cons_nodes(StartN, N, [StartN|Nodes], Acc, CNodes) ->
+  n_cons_nodes(found, N-1, Nodes, [StartN|Acc], CNodes);
+
+n_cons_nodes(StartN, No, [_|CNodes], Acc, Nodes) ->
+  n_cons_nodes(StartN, No, CNodes, Acc, Nodes). %% sometimes it could help
+
+
 take_parts(ToNode, Parts, Nodes, {_N,Q}) ->
   GivenToks = nth_power_of_two(Q) div length(Nodes),
   FromEvery = GivenToks div (length(Nodes)-1),
@@ -260,21 +277,6 @@ take_n(N, CurrNode, ToNode, Parts, Taken) ->
     false -> {Parts,Taken}
    end.
 
-%% tail call so reverse, to check
-n_cons_nodes(_, 0, _, Acc, _) ->
-lists:reverse(Acc);
-
-n_cons_nodes(FNode, No, [], Acc, CNodes) ->
-  n_cons_nodes(FNode, No, CNodes, Acc, CNodes);
-
-n_cons_nodes(found, N, [H|CNodes], Acc, Nodes) ->
-  n_cons_nodes(found, N-1, CNodes, [H|Acc], Nodes);
-
-n_cons_nodes(StartN, N, [StartN|Nodes], Acc, CNodes) ->
-  n_cons_nodes(found, N-1, Nodes, [StartN|Acc], CNodes);
-
-n_cons_nodes(StartN, No, [_|CNodes], Acc, Nodes) ->
-  n_cons_nodes(StartN, No, CNodes, Acc, Nodes). %% sometimes it could help
 
 p_join(IncomingNode, #ring{n=N,q=Q,parts=Parts,version=Version,nodes=Oldies}) ->
     CurrNodes = lists:sort([IncomingNode|Oldies]),

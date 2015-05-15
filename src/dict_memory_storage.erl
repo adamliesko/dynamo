@@ -18,6 +18,8 @@ put(Key, Version, Val, StorageTable) ->
 
 % Stores a key into dictionary
 post(Key, Version, Val, StorageTable) ->
+
+%% to do only if not exists
   error_logger:info_msg("~nPosting a key: ~p on a node:~p,", [Key,node()]),
 	{ok, dict:store(Key, {Version,[Val]}, StorageTable)}.
 

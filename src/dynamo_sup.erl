@@ -19,7 +19,9 @@ start_link(Args,IsMaster) ->
 init({{{N,R,W},StorageArgs},IsMaster}) ->
 Procs = if
 	IsMaster -> [{ring, {ring,start_link,[{N,?Q}]}, permanent, 1000, worker, [ring]},
-												{director, {director,start_link,[{N,R,W}]}, permanent, 1000, worker, [director]}
+												{director, {director,start_link,[{N,R,W}]}, permanent, 1000, worker, [director]},
+												{storage_sup, {storage_sup,start_link,[StorageArgs]}, permanent, 10000, supervisor, [storage_sup]}
+
 						];
 	true ->  [{ring, {ring,start_link,[{N,?Q}]}, permanent, 1000, worker, [ring]},
   								{storage_sup, {storage_sup,start_link,[StorageArgs]}, permanent, 10000, supervisor, [storage_sup]}
