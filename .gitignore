@@ -9,3 +9,4 @@ _rel/dynamo_release
 .concrete/DEV_MODE
 .rebar
 .idea/
+rel

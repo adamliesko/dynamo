@@ -14,7 +14,7 @@ start(_Type, Args) ->
 	Node = node(),
 	Master = list_to_atom("dynamo@127.0.0.1"),
 
-	if Node == Master ->
+	IsMaster = if Node == Master ->
 			Dispatch = cowboy_router:compile([
 				{'_', [
 					{"/", root_handler, []}
@@ -22,14 +22,15 @@ start(_Type, Args) ->
 			]),
 			{ok, _} = cowboy:start_http(http, 100, [{port, 9999}], [
 				{env, [{dispatch, Dispatch}]}
-			]);
+			]),
+			true;
 			true ->
-				wat
+				false
 	end,
 
 	{ok, X} = application:get_env(target),
 	net_adm:ping(list_to_atom(X)),
-	dynamo_sup:start_link(Args).
+	dynamo_sup:start_link(Args,IsMaster).
 
 stop(_State) ->
 	ok.

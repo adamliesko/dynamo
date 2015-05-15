@@ -8,18 +8,21 @@
 
 -behaviour(supervisor).
 
--export([start_link/1]).
+-export([start_link/2]).
 -export([init/1]).
 
-start_link(Args) ->
-	supervisor:start_link(dynamo_sup,Args).
+start_link(Args,IsMaster) ->
+	supervisor:start_link(dynamo_sup,{Args,IsMaster}).
 
 %% Starts up required modules - ring, director and storage supervisor. Uses NRW params with additional Q param - used
-%% for ensuring quorum in app ring
-init({{N,R,W},StorageArgs}) ->
-	Procs = [
-	  {ring, {ring,start_link,[{N,?Q}]}, permanent, 1000, worker, [ring]},
-  	{director, {director,start_link,[{N,R,W}]}, permanent, 1000, worker, [director]},
-  	{storage_sup, {storage_sup,start_link,[StorageArgs]}, permanent, 10000, supervisor, [storage_sup]}
-	],
+%% for ensuring qu
+init({{{N,R,W},StorageArgs},IsMaster}) ->
+Procs = if
+	IsMaster -> [{ring, {ring,start_link,[{N,?Q}]}, permanent, 1000, worker, [ring]},
+												{director, {director,start_link,[{N,R,W}]}, permanent, 1000, worker, [director]}
+						];
+	true ->  [{ring, {ring,start_link,[{N,?Q}]}, permanent, 1000, worker, [ring]},
+  								{storage_sup, {storage_sup,start_link,[StorageArgs]}, permanent, 10000, supervisor, [storage_sup]}
+  						]
+  end,
 	{ok, {{one_for_one,10,1}, Procs}}.
