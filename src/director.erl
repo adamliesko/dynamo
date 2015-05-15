@@ -15,6 +15,7 @@
 
 % initiates gen server with params n,r,w
 start_link({N,R,W}) ->
+  error_logger:info_msg("~nStarting a gen server with params: N:~p ,R:~p, W:~p on a node: ~p ~n,", [N,R,W,node()]),
   gen_server:start_link({local, director}, ?MODULE, {N,R,W}, []).
 
 stop() ->
@@ -26,6 +27,7 @@ get(Key) ->
 
 % api for putting a key, with option to specify context
 put(Key, Context, Val) ->
+   error_logger:info_msg("Director wants to get a key from node: ~p,", [node()]),
   gen_server:call(director, {put, Key, Context, Val}).
 
 % initialize new director record and sets state
@@ -48,38 +50,64 @@ terminate(_R, _State) ->
 code_change(_Old, State, _New) ->
     {ok, State}.
 
+%% Puts a Key inside the correct node, has to receive over W replies in order for a successful reply
+%% - gets nodes for a selected key
+%% - gets partitions for a selected key
+%% - parse vector clock and incr
+%% - Builds up a function of a put key operation
+%% - calls this function over selected Nodes
+%% - parse replies from nodes
+%% - if over W correct replies -> return ok reply
 p_put(Key, Context, Val, #director{w=W,n=_N}) ->
+  error_logger:info_msg("Putting up a key, director on node: ~p", [node()]),
   Nodes = ring:get_nodes_for_key(Key),
+  error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
   Part = ring:part_for_key(Key),
+  error_logger:info_msg("~nThis is the partition fror a key~p~n,", [Part]),
   Incr = if Context == [] -> vector_clock:incr(node(), []);
        true ->  vector_clock:incr(node(), [{node(),Context}])
   end,
   Command = fun(Node) ->
     storage:put({list_to_atom(lists:concat([storage_, Part])),Node}, Key, Incr, Val)
   end,
-
   {GoodNodes, _Bad} = check_nodes(Command, Nodes),
+  error_logger:info_msg("~nThese are the good replies:~p~n,", [GoodNodes]),
   %% check consistency init  param W
   if
     length(GoodNodes) >= W -> {ok,{length(GoodNodes)}};
     true -> {failure,{length(GoodNodes)}}
   end.
 
+%% Gets a value for key, has to receive over R replies in order for a successful reply
+%% - gets nodes for a selected key
+%% - gets partitions for a selected key
+%% - parse vector clock and incr
+%% - Builds up a function of a get key operation
+%% - calls this function over selected Nodes
+%% - parse replies from nodes
+%% - if over R correct replies -> return ok reply
+
 p_get(Key, #director{r=R,n=_N}) ->
   Nodes = ring:get_nodes_for_key(Key),
+  error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
   Part = ring:part_for_key(Key),
+  error_logger:info_msg("~nThis is the partition fror a key~p~n,", [Part]),
   Command = fun(Node) ->
     storage:get({list_to_atom(lists:concat([storage_, Part])), Node}, Key)
   end,
   {GoodNodes, Bad} = check_nodes(Command, Nodes),
   NotFound = check_not_found(Bad,R),
     %% check consistency init  param R
+  error_logger:info_msg("~nThese are the good replies:~p~n,", [GoodNodes]),
   if
     length(GoodNodes) >= R -> {ok, read_replies(GoodNodes)};
     NotFound -> {ok, not_found};
     true -> {failure,{length(GoodNodes)}}
   end.
 
+% this is just to check whether we have received over R replies, marked as a Bad reply.
+% this is applied only after not getting over R correct replies
+% in case of this is false, we return failure as a reply  for ops GET, POST, PUT, DELETE ...
 check_not_found(BadReplies, R) ->
   Total = lists:foldl(fun({_, Elem}, Aku) -> 
     case Elem of
@@ -92,13 +120,15 @@ check_not_found(BadReplies, R) ->
     true -> false
   end.
 
+% Reads array of replies , and if there is not a not_found reply it folds over the replies and resolves it with a vector clock resolution
 read_replies([FirstReply|Replies]) ->
-io:format("FR: ~p~n, R:~p~n",[FirstReply,Replies]),
+ error_logger:info_msg(" Replies from nodes FR: ~p~n, R:~p~n",[FirstReply,Replies]),
   case FirstReply of
     not_found -> not_found;
     _ -> lists:foldr(fun vector_clock:fix/2, FirstReply, Replies)
   end.
 
+%% Get replies from nodes , takes only good replies and maps them to values
 check_nodes(Command, Nodes) ->
   Replies = reader:map_nodes(Command,Nodes),
   GoodReplies = [X|| X <- Replies,get_ok_replies(X) ],
@@ -106,10 +136,14 @@ check_nodes(Command, Nodes) ->
   GoodValues = lists:map(fun get_value/1, GoodReplies),
   {GoodValues, BadReplies}.
 
+%% this just truncates the reply and gets value of a key from it
 get_value({_, {ok, Val}}) ->
   Val;
   get_value(V) ->
     V.
+
+%% filter only goood replies, failure/not found coming through
+%% we can rework it as a list comprehension
 get_ok_replies({_, {ok, _}}) ->
   true;
 get_ok_replies({_, ok}) ->
@@ -117,5 +151,5 @@ get_ok_replies({_, ok}) ->
 get_ok_replies(_Reply) ->
   false.
 
-%%filter(Set1, Fnc) ->
+%%filter UNUSED(Set1, Fnc) ->
 %%  [X || X <- Set1, Fnc(X)].

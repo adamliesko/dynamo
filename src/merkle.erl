@@ -80,7 +80,7 @@ diff(LeafA, LeafB) when is_record(LeafA, leaf) and is_record(LeafB, leaf) ->
      true -> [LeafA#leaf.key,LeafB#leaf.key]
   end.
 
-%% INTERNAL HASH fncs
+%% INTERNAL HASH fnc
 hash(#root{node=Node}) ->
  hash(Node);
 hash(#node{hash=Hash}) ->

@@ -64,6 +64,7 @@ launch_gossip({F, S, T}) ->
   random:seed(F,S,T),
   State = get_state(),
   CurrentNodes = lists:filter(fun(N) -> N /= node() end, ring:nodes()),
+  error_logger:info_msg("~nLaunching gossip with current nodes expec our node:~p~n,", [CurrentNodes]),
   LofNodes = length(CurrentNodes),
      UpdatedState = if 
       LofNodes > 0 ->
@@ -139,7 +140,6 @@ init_state_setup({N,Q}) ->
 new_parts(Quorom, Node) ->
   [{Node,Part} || Part <-  lists:seq(1, nth_power_of_two(32), nth_power_of_two(32-Quorom))].
 
-
 nth_power_of_two(Exp) ->
   (2 bsl (Exp-1)).
 
@@ -164,9 +164,7 @@ join_parts([], S, Acc, _, _) ->
   join_parts(F, [], Acc, _, _) ->
  lists:keysort(2, F ++ Acc);
 
-
-
-      %% n is from n r w params  - degree of replication
+%% n is from n r w params  - degree of replication
 %% join partitions , if same, follow further down the line, if not , choose wisely
 join_parts([{FNode,No}|FPart], [{SNode,No}|SPart], Acc, N, CurrentNodes) ->
       if
@@ -180,7 +178,6 @@ join_parts([{FNode,No}|FPart], [{SNode,No}|SPart], Acc, N, CurrentNodes) ->
             %% this i am noot sure
           end
       end.
-
 
 %% n is from n r w params  - degree of replication - we check if one part
 % is inside another
@@ -268,27 +265,22 @@ n_cons_nodes(_, 0, _, Acc, _) ->
 lists:reverse(Acc);
 
 n_cons_nodes(FNode, No, [], Acc, CNodes) ->
-n_cons_nodes(FNode, No, CNodes, Acc, CNodes);
+  n_cons_nodes(FNode, No, CNodes, Acc, CNodes);
 
 n_cons_nodes(found, N, [H|CNodes], Acc, Nodes) ->
-
   n_cons_nodes(found, N-1, CNodes, [H|Acc], Nodes);
 
 n_cons_nodes(StartN, N, [StartN|Nodes], Acc, CNodes) ->
-
   n_cons_nodes(found, N-1, Nodes, [StartN|Acc], CNodes);
 
 n_cons_nodes(StartN, No, [_|CNodes], Acc, Nodes) ->
-
   n_cons_nodes(StartN, No, CNodes, Acc, Nodes). %% sometimes it could help
-
 
 p_join(IncomingNode, #ring{n=N,q=Q,parts=Parts,version=Version,nodes=Oldies}) ->
     CurrNodes = lists:sort([IncomingNode|Oldies]),
     UP = take_parts(IncomingNode, Parts, CurrNodes,{N,Q}),
     #ring{n=N,q=Q, parts=UP,version = vector_clock:incr(node(), Version),
       nodes=CurrNodes,oldies=Parts}.
-
 
 p_parts_for_node(Node, St, master) ->
         Parts = St#ring.parts,
@@ -306,7 +298,7 @@ p_nodes_for_key(Key, St) ->
     HashedKey= erlang:phash2(Key),
     Quorum = St#ring.q,
     Part = select_part(HashedKey, Quorum),
-    error_logger:info_msg("Part:~p, st:", [Part,St]),
+    error_logger:info_msg("Part:~p, st: ~p", [Part,St]),
     p_nodes_for_part(Part, St).
 
 p_nodes_for_part(Part, St) ->

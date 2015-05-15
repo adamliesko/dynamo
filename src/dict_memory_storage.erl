@@ -13,10 +13,12 @@ close(_StorageTable) -> ok.
 
 % Stores a key into dictionary
 put(Key, Version, Val, StorageTable) ->
+  error_logger:info_msg("~nPutting a key: ~p on a node:~p,", [Key,node()]),
 	{ok, dict:store(Key, {Version,[Val]}, StorageTable)}.
 
 % Gets a key from dictionary, in case it can not be found returns -> not_found
 get(Key, StorageTable) ->
+  error_logger:info_msg("~nGetting a key: ~p from node:~p,", [Key,node()]),
   case dict:find(Key, StorageTable) of
     {ok, Val} -> {ok, Val};
       _ -> not_found

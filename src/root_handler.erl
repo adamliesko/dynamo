@@ -59,7 +59,6 @@ process_post_request(Req) ->
 			cowboy_req:reply(200, [
 				{<<"content-type">>, <<"text/plain; charset=utf-8">>}
 			], Value, Req)
-
 	end.
 
 %% is_integer taken from http://stackoverflow.com/questions/4536046/test-if-a-string-is-a-number
