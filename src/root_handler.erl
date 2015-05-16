@@ -29,7 +29,7 @@ process_get_request(Req) ->
 	case director:get(Key) of
 		{ok,{ok,not_found}} -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
 		{ok, 	    {failure, _Reason}} -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
-	   	    {ok, {_Context,	     Values}} ->
+	   	    {ok, {_Context, Values}} ->
      						{Context,_Value}=Values,
      error_logger:info_msg("~nThis is the replyCONTEXT: ~p VALS:~p~n", [Context, Values]),
      R= io_lib:format("~p",[Values]),
@@ -49,15 +49,19 @@ process_put_request(Req) ->
 
 	TContext = proplists:get_value(<<"context">>, Params),
 	TContext =  proplists:get_value(<<"context">>, Params),
-  	_Context = case TContext of
+  	Context = case TContext of
 
   					undefined -> [];
   					_ ->
   					X=binary_to_list(TContext),
-  					error_logger:info_msg("~nTHIS IS THE CONTEXT: ~p~n", [X]),
-            					X
+  					Z=lists:concat([X,"."]),
+  					{ok,Tokens,_EndLine} = erl_scan:string(Z),
+            {ok,AbsForm} = erl_parse:parse_exprs(Tokens),
+            {value,Y,_Bs} = erl_eval:exprs(AbsForm, erl_eval:new_bindings()),
+  					error_logger:info_msg("~nTHIS IS THE CONTEXT: ~p~n", [Y]),
+            					Y
   	end,
-	case director:put(Key, [], Value) of
+	case director:put(Key, Context, Value) of
 		{failure, _Reason} ->
 		cowboy_req:reply(400, [], <<"Failed to put your key, sorry :(">>, Req);
 		{ok, _N} ->

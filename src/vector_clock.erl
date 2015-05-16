@@ -54,6 +54,8 @@ join(Acc, [{FNode, FVersion}|FClock], SClock) ->
       join([{FNode,FVersion}|Acc],FClock,SClock)
   end.
 
+  %['dynamo@127.0.0.1',{'dynamo@127.0.0.1',[{'dynamo@127.0.0.1',1}]}],
+
 incr(Node, [{Node, Context}|VectorClocks]=X) ->
  error_logger:info_msg("Toto je nas X:~p,", [X]),
   	[{Node, Context+1}|VectorClocks];
@@ -63,7 +65,7 @@ incr(Node, [VectorClock|VectorClocks]=X) ->
   	[VectorClock|incr(Node, VectorClocks)];
 incr(Node, []) ->
  error_logger:info_msg("~nToto je nas node~p,", [Node]),
-    [{Node, 1}].
+    [{node(), 1}].
 equal(First,Second) ->
     if length(First) == length(Second) ->
       lists:all(fun(FirstClock) -> lists:member(FirstClock,Second) end, First);
