@@ -15,7 +15,7 @@
 
 % initiates gen server with params n,r,w
 start_link({N,R,W}) ->
-  error_logger:info_msg("~nStarting a gen server with params: N:~p ,R:~p, W:~p on a node: ~p ~n,", [N,R,W,node()]),
+  error_logger:info_msg("Starting a gen server with params: N:~p ,R:~p, W:~p on a node: ~p", [N,R,W,node()]),
   gen_server:start_link({local, director}, ?MODULE, {N,R,W}, []).
 
 stop() ->
@@ -93,9 +93,9 @@ p_get(Key, S) ->
 p_put(_Node,Key, Context, Val, #director{w=W,n=_N}) ->
   error_logger:info_msg("Putting up a key, director on node: ~p", [node()]),
   Nodes = ring:get_nodes_for_key(Key),
-  error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
+  error_logger:info_msg("These are the current nodes~p,", [Nodes]),
   Part = ring:part_for_key(Key),
-  error_logger:info_msg("~nThis is the partition fror a key~p~n,", [Part]),
+  error_logger:info_msg("This is the partition fror a key~p,", [Part]),
   Incr = if Context == [] -> vector_clock:incr(node(), []);
        true ->  vector_clock:incr(node(),Context)
   end,
@@ -103,7 +103,6 @@ p_put(_Node,Key, Context, Val, #director{w=W,n=_N}) ->
     storage:put({list_to_atom(lists:concat([storage_, Part])),Node}, Key, Incr, Val)
   end,
   {GoodNodes, _Bad} = check_nodes(Command, Nodes),
-  error_logger:info_msg("~nThese are the good replies:~p~n,", [GoodNodes]),
   %% check consistency init  param W
   if
     length(GoodNodes) >= W -> {ok,{length(GoodNodes)}};
@@ -121,14 +120,14 @@ p_put(_Node,Key, Context, Val, #director{w=W,n=_N}) ->
 %% - if over W correct replies -> return ok reply and delete key
 p_del(_Node,Key, #director{n=_N}) ->
   Nodes = ring:get_nodes_for_key(Key),
-  error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
+  error_logger:info_msg("These are the current nodes~p,", [Nodes]),
   Part = ring:part_for_key(Key),
-  error_logger:info_msg("~nThis is the partition fror a key~p~n,", [Part]),
+  error_logger:info_msg("This is the partition fror a key~p,", [Part]),
   Command = fun(Node) ->
     storage:delete({list_to_atom(lists:concat([storage_, Part])), Node}, Key)
   end,
   {GoodNodes, _Bad} = check_nodes(Command, Nodes),
-  error_logger:info_msg("~nThese are the good replies:~p~n,", [GoodNodes]),
+  error_logger:info_msg("These are the good replies:~p,", [GoodNodes]),
   %% check consistency init  param W
   if
     length(GoodNodes) == 0 -> {ok, {length(GoodNodes)}};
@@ -146,16 +145,15 @@ p_del(_Node,Key, #director{n=_N}) ->
 %% - if over R correct replies -> return ok reply and store key
 p_get(_Node,Key, #director{r=R,n=_N}) ->
   Nodes = ring:get_nodes_for_key(Key),
-  error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
+  error_logger:info_msg("~These are the current nodes~p,", [Nodes]),
   Part = ring:part_for_key(Key),
-  error_logger:info_msg("~nThis is the partition fror a key~p~n,", [Part]),
+  error_logger:info_msg("~This is the partition for a key~p,", [Part]),
   Command = fun(Node) ->
     storage:get({list_to_atom(lists:concat([storage_, Part])), Node}, Key)
   end,
   {GoodNodes, Bad} = check_nodes(Command, Nodes),
   NotFound = check_not_found(Bad,R),
     %% check consistency init  param R
-  error_logger:info_msg("~nThese are the good replies:~p~n,", [GoodNodes]),
   if
     length(GoodNodes) >= R -> {ok, read_replies(GoodNodes)};
     NotFound -> {ok, not_found};
@@ -179,7 +177,7 @@ check_not_found(BadReplies, R) ->
 
 % Reads array of replies , and if there is not a not_found reply it folds over the replies and resolves it with a vector clock resolution
 read_replies([FirstReply|Replies]) ->
- error_logger:info_msg(" Replies from nodes FR: ~p~n, R:~p~n",[FirstReply,Replies]),
+ error_logger:info_msg(" Values from nodes R:~p",[FirstReply,Replies]),
   case FirstReply of
     not_found -> not_found;
     _ -> lists:foldr(fun vector_clock:fix/2, FirstReply, Replies)
@@ -188,6 +186,7 @@ read_replies([FirstReply|Replies]) ->
 %% Get replies from nodes , takes only good replies and maps them to values
 check_nodes(Command, Nodes) ->
   Replies = reader:map_nodes(Command,Nodes),
+    error_logger:info_msg("These are the replies:~p,", [Replies]),
   GoodReplies = [X|| X <- Replies,get_ok_replies(X) ],
  BadReplies = lists:subtract(Replies,GoodReplies),
   GoodValues = lists:map(fun get_value/1, GoodReplies),

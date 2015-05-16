@@ -48,6 +48,7 @@ stop() ->
 %% GEN SERVER calls
 
 init({N,Q}) ->
+process_flag(trap_exit, true),
   CurrentNodes = erlang:nodes(), %% built_in_function truly, shadowing our own? duh
   LofNodes = length(CurrentNodes),
    {ok, State} = if
@@ -286,7 +287,6 @@ p_join(IncomingNode, #ring{n=N,q=Q,parts=Parts,version=Version,nodes=Oldies}) ->
     UP = take_parts(IncomingNode, Parts, CurrNodes,{N,Q}),
     #ring{n=N,q=Q, parts=UP,version = vector_clock:incr(node(), Version),
       nodes=CurrNodes,oldies=Parts}.
-
 
 %%get partitions for a node
 p_parts_for_node(Node, St, master) ->

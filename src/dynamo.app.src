@@ -17,7 +17,8 @@
 	{applications, [
 		kernel,
 		stdlib,
-		cowboy
+		cowboy,
+		eredis
 	]},
 	{mod, {dynamo_app, {{3,2,2},[
 	                        {dict_memory_storage, "empty_in_memory_name_does_not_matter", dict_store}

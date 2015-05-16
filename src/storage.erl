@@ -60,17 +60,16 @@ handle_call({get, Key}, _From, State = #storage{module=Module,table_storage=Tabl
 
 %% calls put on a currently used storage module by this certain node and updates merkle tree
 handle_call({put, Key, Version, Val}, _From, State = #storage{module=Module,table_storage=TableStorage,tree=Tr}) ->
-  CurrentTr = merkle:insert(Key,Val,Tr), %% updating tree
   case catch Module:put(convert_key_to_list(Key),Version,Val,TableStorage) of
-    {ok, Updated} -> {reply,ok,State#storage{table_storage=Updated,tree=CurrentTr}};
+
+    {ok, Updated} ->    CurrentTr = merkle:insert(Key,Val,Tr),{reply,ok,State#storage{table_storage=Updated,tree=CurrentTr}};
     Failure -> {reply, Failure, State}
   end;
 
 %% calls delete on a currently used storage module by this certain node
 handle_call({delete, Key}, _From, State = #storage{module=Module,table_storage=TableStorage, tree=Tr}) ->
-  CurrentTr = merkle:delete(Key,Tr), %% updating tree
   case catch Module:delete(convert_key_to_list(Key),TableStorage) of
-    {ok, Updated} -> {reply,ok,State#storage{table_storage=Updated,tree=CurrentTr}};
+    {ok, Updated} -> CurrentTr = merkle:delete(Key,Tr),{reply,ok,State#storage{table_storage=Updated,tree=CurrentTr}}; %% updating tree;
     Failure -> {reply, Failure, State}
   end;
 

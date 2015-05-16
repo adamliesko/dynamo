@@ -4,7 +4,7 @@
 -module(dynamo_sup).
 
 %% quorum like parameter
--define(Q, 6).
+-define(Q, 10).
 
 -behaviour(supervisor).
 
