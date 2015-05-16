@@ -128,22 +128,22 @@ p_post(Key, Context, Val, #director{w=W,n=_N}) ->
 %% - calls this function over selected Nodes
 %% - parse replies from nodes
 %% - if over W correct replies -> return ok reply and delete key
-p_del(Key, #director{w=W,n=_N}) ->
-  error_logger:info_msg("Deleting a key, director on node: ~p", [node()]),
+p_del(Key, #director{n=_N}) ->
   Nodes = ring:get_nodes_for_key(Key),
   error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
   Part = ring:part_for_key(Key),
   error_logger:info_msg("~nThis is the partition fror a key~p~n,", [Part]),
   Command = fun(Node) ->
-    storage:delete({list_to_atom(lists:concat([storage_, Part])),Node}, Key)
+    storage:delete({list_to_atom(lists:concat([storage_, Part])), Node}, Key)
   end,
   {GoodNodes, _Bad} = check_nodes(Command, Nodes),
   error_logger:info_msg("~nThese are the good replies:~p~n,", [GoodNodes]),
   %% check consistency init  param W
   if
-    length(GoodNodes) >= W -> {ok,{length(GoodNodes)}};
+    length(GoodNodes) == 0 -> {ok, {length(GoodNodes)}};
     true -> {failure,{length(GoodNodes)}}
   end.
+
 
 %% Gets a value for key, has to receive over R replies in order for a successful reply
 %% - gets nodes for a selected key
