@@ -13,7 +13,7 @@ close(_StorageTable) -> ok.
 
 % Stores a key into dictionary
 put(Key, Version, Val, StorageTable) ->
-  error_logger:info_msg("~nPutting a key: ~p on a node:~p,", [Key,node()]),
+  error_logger:info_msg("~nPutting a key: ~p on a node:~p, version: ~p, vals: ~p", [Key,node(), Version,Val]),
 	{ok, dict:store(Key, {Version,[Val]}, StorageTable)}.
 
 % Stores a key into dictionary
@@ -27,7 +27,9 @@ post(Key, Version, Val, StorageTable) ->
 get(Key, StorageTable) ->
   error_logger:info_msg("~nGetting a key: ~p from node:~p,", [Key,node()]),
   case dict:find(Key, StorageTable) of
-    {ok, Val} -> {ok, Val};
+    {ok, Val} ->
+     error_logger:info_msg("~nVraciam takuto vecicku hodnota  kontext: ~p,", [Val]),
+    {ok, Val};
       _ -> not_found
   end.
 

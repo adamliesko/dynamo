@@ -5,7 +5,7 @@
 
 -behaviour(gen_server).
 
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3,p_put/4,p_put/5]).
 -export([start_link/1, get/1, put/3, del/1, post/3,stop/0]).
 
 %% N - degree of replication
@@ -62,6 +62,15 @@ terminate(_R, _State) ->
 code_change(_Old, State, _New) ->
     {ok, State}.
 
+%% random node selection
+p_put(Key, Context, Val, S) ->
+  Nodes = ring:nodes(),
+  Index = random:uniform(length(Nodes)),
+  Node = lists:nth(Index,Nodes),
+  error_logger:info_msg("Selected: ~p", [Node]),
+  rpc:call(Node,director,p_put,[Node,Key,Context,Val,S]).
+
+
 %% Puts a Key inside the correct node, has to receive over W replies in order for a successful reply
 % PUTS ALWAYS TRIES TO STORE THE KEY
 %% - gets nodes for a selected key
@@ -71,20 +80,23 @@ code_change(_Old, State, _New) ->
 %% - calls this function over selected Nodes
 %% - parse replies from nodes
 %% - if over W correct replies -> return ok reply and puts key
-p_put(Key, Context, Val, #director{w=W,n=_N}) ->
-  error_logger:info_msg("Putting up a key, director on node: ~p", [node()]),
+p_put(_Node,Key, Context, Val, #director{w=W,n=_N}) ->
+  error_logger:info_msg("Write is being handled by a node: ~p", [node()]),
   Nodes = ring:get_nodes_for_key(Key),
-  error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
+
   Part = ring:part_for_key(Key),
-  error_logger:info_msg("~nThis is the partition fror a key~p~n,", [Part]),
-  Incr = if Context == [] -> vector_clock:incr(node(), []);
-       true ->  vector_clock:incr(node(), [{node(),Context}])
-  end,
-  Command = fun(Node) ->
-    storage:put({list_to_atom(lists:concat([storage_, Part])),Node}, Key, Incr, Val)
+
+  error_logger:info_msg("~nCONTEXT JE: ~p~n,",[Context]),
+ Incr =  case Context of
+          [] -> vector_clock:incr(node(), []);
+         _ ->  vector_clock:incr(node(),Context),   error_logger:info_msg("~nINCREMENTUJEM SPRAVNU VEC~n,")
+    end,
+
+  error_logger:info_msg("~nTakto som inkrementoval vector clock~p~n,", [Incr]),
+  Command = fun(XNode) ->
+    storage:put({list_to_atom(lists:concat([storage_, Part])),XNode}, Key, Incr, Val)
   end,
   {GoodNodes, _Bad} = check_nodes(Command, Nodes),
-  error_logger:info_msg("~nThese are the good replies:~p~n,", [GoodNodes]),
   %% check consistency init  param W
   if
     length(GoodNodes) >= W -> {ok,{length(GoodNodes)}};
@@ -101,7 +113,7 @@ p_put(Key, Context, Val, #director{w=W,n=_N}) ->
 %% - parse replies from nodes
 %% - if over W correct replies -> return ok reply and puts key
 p_post(Key, Context, Val, #director{w=W,n=_N}) ->
-  error_logger:info_msg("Putting up a key, director on node: ~p", [node()]),
+  error_logger:info_msg("Posting up a key, director on node: ~p", [node()]),
   Nodes = ring:get_nodes_for_key(Key),
   error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
   Part = ring:part_for_key(Key),
@@ -164,7 +176,7 @@ p_get(Key, #director{r=R,n=_N}) ->
   {GoodNodes, Bad} = check_nodes(Command, Nodes),
   NotFound = check_not_found(Bad,R),
     %% check consistency init  param R
-  error_logger:info_msg("~nThese are the good replies:~p~n,", [GoodNodes]),
+  error_logger:info_msg("~nThese are the good replies:~p~n,", [read_replies(GoodNodes)]),
   if
     length(GoodNodes) >= R -> {ok, read_replies(GoodNodes)};
     NotFound -> {ok, not_found};
@@ -197,6 +209,7 @@ read_replies([FirstReply|Replies]) ->
 %% Get replies from nodes , takes only good replies and maps them to values
 check_nodes(Command, Nodes) ->
   Replies = reader:map_nodes(Command,Nodes),
+   error_logger:info_msg("~n Replies~n~p:",[Replies]),
   GoodReplies = [X|| X <- Replies,get_ok_replies(X) ],
  BadReplies = lists:subtract(Replies,GoodReplies),
   GoodValues = lists:map(fun get_value/1, GoodReplies),

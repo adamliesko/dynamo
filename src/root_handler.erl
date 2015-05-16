@@ -27,12 +27,15 @@ process_get_request(Req) ->
 	case director:get(Key) of
 		{ok,{ok,not_found}} -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
 		{ok, 	    {failure, _Reason}} -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
-	    {ok, {_Context, Values}} ->
-						{_,Value}=Values,
-						%%Response = lists:concat([context_,Context,value_, Value]),
+	    {ok, {_Context,	     Values}} ->
+						{Context,_Value}=Values,
+error_logger:info_msg("~nThis is the replyCONTEXT: ~p VALS:~p~n", [Context, Values]),
+R= io_lib:format("~p",[Values]),
+lists:flatten(R),
+						%%Response = lists:concat([context_,Context,Value]),
 		    	cowboy_req:reply(200, [
 					{<<"content-type">>, <<"text/plain; charset=utf-8">>}
-				], Value, Req);
+				], R, Req);
 
 	    {failure, _Reason} ->
 	    	cowboy_req:reply(400, [], <<"Missing key parameter.">>, Req)
@@ -42,10 +45,14 @@ process_put_request(Req) ->
 	{ok, Params, _Req2}  = cowboy_req:body_qs(Req),
 	Key = proplists:get_value(<<"key">>, Params),
 	Value = proplists:get_value(<<"value">>, Params),
-	TContext = proplists:get_value(<<"context">>, Params),
-	IsInt = is_integer_p(TContext),
-	Context = if IsInt -> list_to_integer(binary_to_list(TContext));
-		true -> []
+	TContext =  proplists:get_value(<<"context">>, Params),
+	Context = case TContext of
+
+					undefined -> [];
+					_ ->
+					X=binary_to_list(TContext),
+					error_logger:info_msg("~nTHIS IS THE CONTEXT: ~p~n", [X]),
+          					X
 	end,
 	case director:put(Key, Context, Value) of
 		{failure, _Reason} ->
@@ -56,13 +63,3 @@ process_put_request(Req) ->
 			], Value, Req)
 
 	end.
-
-%% is_integer taken from http://stackoverflow.com/questions/4536046/test-if-a-string-is-a-number
-%% checks whether argument is an integer
-is_integer_p(S) ->
-    try
-        _ = list_to_integer(binary_to_list(S)),
-        true
-    catch error:badarg ->
-        false
-    end.

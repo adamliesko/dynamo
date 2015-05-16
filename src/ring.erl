@@ -64,7 +64,7 @@ launch_gossip({F, S, T}) ->
   random:seed(F,S,T),
   State = get_state(),
   CurrentNodes = lists:filter(fun(N) -> N /= node() end, ring:nodes()),
-  error_logger:info_msg("~nLaunching gossip  on Node : ~p, with current nodes expect our node:~p~n,", [CurrentNodes]),
+  %error_logger:info_msg("~nLaunching gossip  on Node : ~p, with current nodes expect our node:~p~n,", [CurrentNodes]),
   LofNodes = length(CurrentNodes),
      UpdatedState = if 
       LofNodes > 0 ->
@@ -300,7 +300,6 @@ p_nodes_for_key(Key, St) ->
     HashedKey= erlang:phash2(Key),
     Quorum = St#ring.q,
     Part = select_part(HashedKey, Quorum),
-    error_logger:info_msg("Part:~p, st: ~p", [Part,St]),
     p_nodes_for_part(Part, St).
 
 p_nodes_for_part(Part, St) ->

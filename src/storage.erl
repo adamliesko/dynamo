@@ -26,7 +26,7 @@ get(Title, Key) ->
 
 %% put storage api endpoint with default timeout value
 put(Title, Key, Version, Val) ->
-	gen_server:call(Title, {put, Key, Version, Val},1000).
+	gen_server:call(Title, {put, Key,Version, Val},1000).
 
 close(Title) ->
     gen_server:call(Title, close).
@@ -78,15 +78,15 @@ synchronize(First,Second) ->
   FTree  = tree(First),
   STree = tree(Second),
   lists:foreach(fun(Key) ->
-    {ok, FirstReply} = get(First,Key),
+    FirstReply = get(First,Key),
     {ok, SecondReply} = get(Second, Key),
     case {FirstReply,SecondReply} of
       %% second is missing some key
-     {{Version,[Val]}, not_found}  ->
+        {not_found, {ok, {Version, [Val]}}} ->
         put(First,Key,Version,Val);
-      {not_found,{Version,[Val]}} ->
+        {{ok, {Version, [Val]}}, not_found} ->
       %% first is missing some key
-        put(Second,Key,Version,Val);
+          put(Second,Key,Version,Val);
       %% none, we need to resolve it from vector_clock
       _ ->
         {Version,[Val|_]=Vals} = vector_clock:resolve(FirstReply, SecondReply),

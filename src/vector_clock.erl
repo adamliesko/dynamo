@@ -7,6 +7,7 @@ new(Node) -> [{Node, 1}].
 
 %% resolve key value from two ppossibly different vector clocks
 fix({FClock, FValues} = First, {SClock, SValues} = Second) ->
+error_logger:info_msg("~nTHIS IS THE CONTEXT: ~p a ~p~n", [First,Second]),
   ComparisonResult = diff(FClock,SClock),
   case ComparisonResult of
       leq ->
@@ -53,12 +54,11 @@ join(Acc, [{FNode, FVersion}|FClock], SClock) ->
       join([{FNode,FVersion}|Acc],FClock,SClock)
   end.
 
-
 incr(Node, [{Node, Context}|VectorClocks]) ->
   	[{Node, Context+1}|VectorClocks];
 incr(Node, [VectorClock|VectorClocks]) ->
   	[VectorClock|incr(Node, VectorClocks)];
-    incr(Node, []) ->
+incr(Node, []) ->
     [{Node, 1}].
 equal(First,Second) ->
     if length(First) == length(Second) ->
