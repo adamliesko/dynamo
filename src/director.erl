@@ -118,7 +118,7 @@ p_put(_Node,Key, Context, Val, #director{w=W,n=_N}) ->
 %% - calls this function over selected Nodes
 %% - parse replies from nodes
 %% - if over W correct replies -> return ok reply and delete key
-p_del(_Node,Key, #director{n=_N}) ->
+p_del(_Node,Key, #director{n=_N,w=W}) ->
   Nodes = ring:get_nodes_for_key(Key),
   error_logger:info_msg("These are the current nodes~p,", [Nodes]),
   Part = ring:part_for_key(Key),
@@ -130,7 +130,9 @@ p_del(_Node,Key, #director{n=_N}) ->
   error_logger:info_msg("These are the good replies:~p,", [GoodNodes]),
   %% check consistency init  param W
   if
-    length(GoodNodes) == 0 -> {ok, {length(GoodNodes)}};
+    length(GoodNodes) >= W ->
+     error_logger:info_msg("TThis is how we do , ye chill ,"),
+     {ok, {length(GoodNodes)}};
     true -> {failure,{length(GoodNodes)}}
   end.
 

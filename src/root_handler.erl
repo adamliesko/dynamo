@@ -77,10 +77,11 @@ process_put_request(Req) ->
 %% on a s
 process_delete_request(Req) ->
 	#{key := Key} = cowboy_req:match_qs([key], Req),
+	error_logger:info_msg("FINAL! CD:", [director:del(Key)]),
 	case director:del(Key) of
 			{ok,{ok,not_found}} -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
 		{failure, _Reason} ->
 		cowboy_req:reply(400, [], <<"Failed to delete your key, sorry :(">>, Req);
 		{ok, _N} ->
-			cowboy_req:reply(200, [], <<"Key was deleted">>, Req)
+			cowboy_req:reply(200, [], <<"Key was deleted or not found. ">>, Req)
 	end.

@@ -26,9 +26,7 @@ get(Key, StorageTable) ->
 
 % Erases a key from a dict
 delete(Key, StorageTable) ->
-  error_logger:info_msg("~Deleting a key: ~p from node:~p,", [Key,node()]),
-  {ok, dict:erase(Key, StorageTable)}.
-
+ {ok, dict:erase(Key, StorageTable)}.
 
 % Fold whole dictionary with an Incoming function. Used in building merkle trees during storage init setup.
 fold(Cmd, Storehouse, Acc) ->

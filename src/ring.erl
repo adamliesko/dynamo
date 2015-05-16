@@ -1,8 +1,10 @@
+%% Description %%
+%% Ring is a implementation of consistent hashing. We used Dynamo's algortihm ( v3) from the paper
+%% Hashing key space 1-2^32
 -module(ring).
 
 -behaviour(gen_server).
 %% API
-
 
 -export([p_join/2,join_parts/5,inside/5,init_state_setup/1,n_cons_nodes/3,new_parts/2,start_link/1, get_range/1, part_for_key/1, parts_for_node/2, get_oldies_parts/0, nodes/0 ,stop/0, get_nodes_for_key/1, join/2, launch_gossip/1, set_state/1, get_state/0 ]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,code_change/3]).
@@ -61,6 +63,8 @@ process_flag(trap_exit, true),
    timer:apply_after(random:uniform(1000) + 5000, ring, launch_gossip, [random:seed()]),
    {ok, State}.
 
+
+%% our little fancy gossip protocol - syn divergent nodes, detect failures etc.
 launch_gossip({F, S, T}) ->
   random:seed(F,S,T),
   State = get_state(),
@@ -144,6 +148,7 @@ new_parts(Quorom, Node) ->
 nth_power_of_two(Exp) ->
   (2 bsl (Exp-1)).
 
+%% get random node from a list
 get_rand_node(List) ->
   %% this is truly random
   Index = random:uniform(length(List)),
@@ -156,6 +161,8 @@ join_states(First, Second) ->
     Parts = join_parts(First#ring.parts,Second#ring.parts, [], First#ring.n, Nodes),
     #ring{nodes=Nodes, version=vector_clock:join(First#ring.version, Second#ring.version), parts=Parts, n= First#ring.n, q=First#ring.q}.
 
+
+%% LARGE FUNCTION for joining partitions
 join_parts([], [], Acc, _, _) ->
     lists:keysort(2, Acc);
 %% end recursive madness, sorting by 2nd
@@ -281,7 +288,7 @@ take_n(N, CurrNode, ToNode, Parts, Taken) ->
     false -> {Parts,Taken}
    end.
 
-
+% facade for joining a new node
 p_join(IncomingNode, #ring{n=N,q=Q,parts=Parts,version=Version,nodes=Oldies}) ->
     CurrNodes = lists:sort([IncomingNode|Oldies]),
     UP = take_parts(IncomingNode, Parts, CurrNodes,{N,Q}),
@@ -302,14 +309,12 @@ p_parts_for_node(Node, St, all) ->
             lists:merge(Accu, p_parts_for_node(X, St, master)) %% only a pseudo master
           end, [], PNodes).
 
-
 % get all nodes for selected key
 p_nodes_for_key(Key, St) ->
     HashedKey= erlang:phash2(Key),
     Quorum = St#ring.q,
     Part = select_part(HashedKey, Quorum),
     p_nodes_for_part(Part, St).
-
 
 %% get all nodes for that partition
 p_nodes_for_part(Part, St) ->
@@ -318,7 +323,6 @@ p_nodes_for_part(Part, St) ->
     N = St#ring.n,
     {CNode,Part} = lists:nth(idx_for_part(Part, Quorum), Parts),
     n_cons_nodes(CNode, N, St#ring.nodes).
-
 
 %% selects partition for a key
 select_part(HashedK,Q) ->
