@@ -12,6 +12,8 @@ init(Req, Opts) ->
 			process_get_request(Req);
 		<<"PUT">> ->
 			process_put_request(Req);
+		<<"DELETE">> ->
+			process_delete_request(Req);
 		(_) ->
 			cowboy_req:reply(405, Req)
 	end,
@@ -56,6 +58,28 @@ process_put_request(Req) ->
 			], Value, Req)
 
 	end.
+
+%% procesess DELETE request for a key
+%% return not_found in case the key was not found in the dynamo cluster (conditions defined by setup)
+%% return failure in case of missing params, or something worse, we pretend that your param is always missing
+%% 					in case of a failure
+%% on a s
+process_delete_request(Req) ->
+	#{key := Key} = cowboy_req:match_qs([key], Req),
+	cowboy_req:reply(200, [], <<"Dostal som sa sem">>, Req),
+	case director:delete(Key) of
+		{ok,{ok,not_found}} -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
+		{ok, 	    {failure, _Reason}} -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
+	    {ok, {_Context, Values}} ->
+						{_,Value}=Values,
+						%%Response = lists:concat([context_,Context,value_, Value]),
+		    	cowboy_req:reply(200, [
+					{<<"content-type">>, <<"text/plain; charset=utf-8">>}
+				], Value, Req);
+
+	    {failure, _Reason} ->
+	    	cowboy_req:reply(400, [], <<"Missing key parameter.">>, Req)
+ 	 end.
 
 %% is_integer taken from http://stackoverflow.com/questions/4536046/test-if-a-string-is-a-number
 %% checks whether argument is an integer

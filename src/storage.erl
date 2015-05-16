@@ -1,7 +1,7 @@
 -module(storage).
 -behaviour(gen_server).
 
--export([start_link/5,start_link/6, get/2, put/4, close/1]).
+-export([start_link/5,start_link/6, get/2, put/4, delete/2, close/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
 
 %% storage engine definition - important is the module - in our case it is always dict_memory_storage, but we could
@@ -27,6 +27,10 @@ get(Title, Key) ->
 %% put storage api endpoint with default timeout value
 put(Title, Key, Version, Val) ->
 	gen_server:call(Title, {put, Key, Version, Val},1000).
+
+%% delete storage api endpoint with default timeout value
+delete(Title, Key) ->
+  gen_server:call(Title, {delete, Key},1000).
 
 close(Title) ->
     gen_server:call(Title, close).
@@ -58,6 +62,14 @@ handle_call({get, Key}, _From, State = #storage{module=Module,table_storage=Tabl
 handle_call({put, Key, Version, Val}, _From, State = #storage{module=Module,table_storage=TableStorage,tree=Tr}) ->
   CurrentTr = merkle:insert(Key,Val,Tr), %% updating tree
   case catch Module:put(convert_key_to_list(Key),Version,Val,TableStorage) of
+    {ok, Updated} -> {reply,ok,State#storage{table_storage=Updated,tree=CurrentTr}};
+    Failure -> {reply, Failure, State}
+  end;
+
+%% calls delete on a currently used storage module by this certain node
+handle_call({delete, Key}, _From, State = #storage{module=Module,table_storage=TableStorage, tree=Tr}) ->
+  CurrentTr = merkle:delete(Key,Tr), %% updating tree
+  case catch  Module:delete(convert_key_to_list(Key), TableStorage) of
     {ok, Updated} -> {reply,ok,State#storage{table_storage=Updated,tree=CurrentTr}};
     Failure -> {reply, Failure, State}
   end;
