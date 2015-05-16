@@ -12,6 +12,8 @@
 %% either way - starts up the dynamo node, and tries to ping the Master node/jointo node
 start(_Type, Args) ->
 	Node = node(),
+
+	%% not the best way:(
 	Master = list_to_atom("dynamo@127.0.0.1"),
 
 	IsMaster = if Node == Master ->

@@ -61,7 +61,7 @@ p_put(Key, Context, Val, S) ->
   Nodes = ring:nodes(),
   Index = random:uniform(length(Nodes)),
   Node = lists:nth(Index,Nodes),
-  error_logger:info_msg("Selected: ~p", [Node]),
+  error_logger:info_msg("Selected node for task: ~p", [Node]),
   rpc:call(Node,director,p_put,[Node,Key,Context,Val,S]).
 
 %% random node selection
@@ -69,7 +69,7 @@ p_del(Key, S) ->
   Nodes = ring:nodes(),
   Index = random:uniform(length(Nodes)),
   Node = lists:nth(Index,Nodes),
-  error_logger:info_msg("Selected: ~p", [Node]),
+  error_logger:info_msg("Selected node for taks: ~p", [Node]),
   rpc:call(Node,director,p_del,[Node,Key,S]).
 
 %% random node selection
@@ -77,7 +77,7 @@ p_get(Key, S) ->
   Nodes = ring:nodes(),
   Index = random:uniform(length(Nodes)),
   Node = lists:nth(Index,Nodes),
-  error_logger:info_msg("Selected: ~p", [Node]),
+  error_logger:info_msg("Selected node for task: ~p", [Node]),
   rpc:call(Node,director,p_get,[Node,Key,S]).
 
 
@@ -95,7 +95,7 @@ p_put(_Node,Key, Context, Val, #director{w=W,n=_N}) ->
   Nodes = ring:get_nodes_for_key(Key),
   error_logger:info_msg("These are the current nodes~p,", [Nodes]),
   Part = ring:part_for_key(Key),
-  error_logger:info_msg("This is the partition fror a key~p,", [Part]),
+  error_logger:info_msg("This is the partition for a key~p,", [Part]),
   Incr = if Context == [] -> vector_clock:incr(node(), []);
        true ->  vector_clock:incr(node(),Context)
   end,
@@ -131,7 +131,6 @@ p_del(_Node,Key, #director{n=_N,w=W}) ->
   %% check consistency init  param W
   if
     length(GoodNodes) >= W ->
-     error_logger:info_msg("TThis is how we do , ye chill ,"),
      {ok, {length(GoodNodes)}};
     true -> {failure,{length(GoodNodes)}}
   end.

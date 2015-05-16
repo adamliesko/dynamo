@@ -7,7 +7,6 @@ new(Node) -> [{Node, 1}].
 
 %% resolve key value from two ppossibly different vector clocks
 fix({FClock, FValues} = First, {SClock, SValues} = Second) ->
-error_logger:info_msg("~nTHIS IS THE CONTEXT: ~p a ~p~n", [First,Second]),
   ComparisonResult = diff(FClock,SClock),
   case ComparisonResult of
       leq ->
@@ -56,15 +55,11 @@ join(Acc, [{FNode, FVersion}|FClock], SClock) ->
 
   %['dynamo@127.0.0.1',{'dynamo@127.0.0.1',[{'dynamo@127.0.0.1',1}]}],
 
-incr(Node, [{Node, Context}|VectorClocks]=X) ->
- error_logger:info_msg("Toto je nas X:~p,", [X]),
+incr(Node, [{Node, Context}|VectorClocks]) ->
   	[{Node, Context+1}|VectorClocks];
-incr(Node, [VectorClock|VectorClocks]=X) ->
- error_logger:info_msg("vetva 2 Toto je nas X:p,", [X]),
-  error_logger:info_msg("~nToto je nas vc:~p,", [VectorClock]),
+incr(Node, [VectorClock|VectorClocks]) ->
   	[VectorClock|incr(Node, VectorClocks)];
-incr(Node, []) ->
- error_logger:info_msg("~nToto je nas node~p,", [Node]),
+incr(_Node, []) ->
     [{node(), 1}].
 equal(First,Second) ->
     if length(First) == length(Second) ->

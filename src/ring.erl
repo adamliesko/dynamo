@@ -79,7 +79,7 @@ launch_gossip({F, S, T}) ->
       true -> State
      end,
      set_state(UpdatedState),
-     timer:apply_after(5000, ring, launch_gossip, [random:seed()]).
+     timer:apply_after(random:uniform(1000)+5000, ring, launch_gossip, [random:seed()]).
 
 %% adding new node
 handle_call({join, NewNode}, {_, _From}, State) ->

@@ -1,3 +1,5 @@
+%% Description %%
+%% Merkle tree module used for rpelica synchronization
 -module(merkle).
 -export([init/2, insert/3, delete/2, delete/3, diff/2]).
 
@@ -5,6 +7,7 @@
 -record(node, {hash, middle, left, right}).
 -record(leaf, {hash, key}).
 
+%% setting middle element to the middle of key range
 init(Min, Max) ->
 #root{min=Min,max=Max,node=#node{hash=empty,middle=(Min+Max) div 2,left=empty,right=empty}}.
 
@@ -27,7 +30,7 @@ insert(KeyHash, Key, Value, Min, Max, Node) when is_record(Node, node) ->
 insert(_, Key, Value, _, _, Leaf) when is_record(Leaf, leaf) and (Key==Leaf#leaf.key) ->
   #leaf{hash=hash(Value),key=Key}; %replace leaf
 insert(KeyHash, Key, Value, Min, Max, Leaf) when is_record(Leaf, leaf) ->
-    Middle=(Min+Max) div 2,
+    Middle=(Min+Max) div 2, % this goes mad sometimes
     Node = #node{middle=Middle,left=empty,right=empty,hash=empty},
     H = hash(Leaf#leaf.key),
     SemiNode = if H < Middle -> Node#node{left=Leaf};
@@ -44,6 +47,7 @@ delete(_, _, Leaf) when is_record(Leaf, leaf) -> Leaf;
 delete(KeyHash, Key, Node) when is_record(Node, node) and (KeyHash < Node#node.middle) -> Node#node{left=delete(KeyHash,Key,Node#node.left),right=Node#node.right};
 delete(KeyHash, Key, Node) when is_record(Node, node) -> Node#node{left=Node#node.left, right=delete(KeyHash,Key,Node#node.right)}.
 
+%% this is the key function of merkle tree module, analogical to the vector clock diff kind of
 diff(#root{node=NodeA}, #root{node=NodeB}) ->
   diff(NodeA, NodeB);
 
@@ -80,7 +84,7 @@ diff(LeafA, LeafB) when is_record(LeafA, leaf) and is_record(LeafB, leaf) ->
      true -> [LeafA#leaf.key,LeafB#leaf.key]
   end.
 
-%% INTERNAL HASH fnc
+%% INTERNAL HASH fnc - using erlang phash2
 hash(#root{node=Node}) ->
  hash(Node);
 hash(#node{hash=Hash}) ->

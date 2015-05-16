@@ -3,7 +3,7 @@
 %% We chose one_for_one restart strategy and longer timeouts.
 -module(dynamo_sup).
 
-%% quorum like parameter
+%% quorum like parameter - should be much >>>>> then the S=number of nodes in the system
 -define(Q, 10).
 
 -behaviour(supervisor).
