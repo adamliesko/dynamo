@@ -6,7 +6,7 @@
 -behaviour(gen_server).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([start_link/1, get/1, put/3, del/1, post/3,stop/0]).
+-export([start_link/1, get/1, put/3, del/1, stop/0]).
 
 %% N - degree of replication
 %% R - number of  req. successful replies during read operation
@@ -33,10 +33,6 @@ del(Key) ->
 put(Key, Context, Val) ->
   gen_server:call(director, {put, Key, Context, Val}).
 
-% api for posting a key, with option to specify context
-post(Key, Context, Val) ->
-  gen_server:call(director, {put, Key, Context, Val}).
-
 % initialize new director record and sets state
 init({N,R,W}) ->
     {ok, #director{n=N,r=R,w=W}}.
@@ -49,8 +45,6 @@ handle_call({get, Key}, _From, State) ->
 handle_call({del, Key}, _From, State) ->
   {reply, p_del(Key, State), State};
 
-handle_call({post, Key, Context, Val}, _From, State) ->
-  {reply, p_post(Key, Context, Val, State), State};
 handle_call(stop, _From, State) ->
   {stop, shutdown, ok, State}.
 handle_cast(_Msg, State) ->
@@ -72,35 +66,6 @@ code_change(_Old, State, _New) ->
 %% - parse replies from nodes
 %% - if over W correct replies -> return ok reply and puts key
 p_put(Key, Context, Val, #director{w=W,n=_N}) ->
-  error_logger:info_msg("Putting up a key, director on node: ~p", [node()]),
-  Nodes = ring:get_nodes_for_key(Key),
-  error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
-  Part = ring:part_for_key(Key),
-  error_logger:info_msg("~nThis is the partition fror a key~p~n,", [Part]),
-  Incr = if Context == [] -> vector_clock:incr(node(), []);
-       true ->  vector_clock:incr(node(), [{node(),Context}])
-  end,
-  Command = fun(Node) ->
-    storage:put({list_to_atom(lists:concat([storage_, Part])),Node}, Key, Incr, Val)
-  end,
-  {GoodNodes, _Bad} = check_nodes(Command, Nodes),
-  error_logger:info_msg("~nThese are the good replies:~p~n,", [GoodNodes]),
-  %% check consistency init  param W
-  if
-    length(GoodNodes) >= W -> {ok,{length(GoodNodes)}};
-    true -> {failure,{length(GoodNodes)}}
-  end.
-
-%% Posts a Key inside the correct node, has to receive over W replies in order for a successful reply
-%% POST STORES KEY ONLY IF IT DOES NOT EXIST PREVIOUSLY
-%% - gets nodes for a selected key
-%% - gets partitions for a selected key
-%% - parse vector clock and incr
-%% - Builds up a function of a put key operation
-%% - calls this function over selected Nodes
-%% - parse replies from nodes
-%% - if over W correct replies -> return ok reply and puts key
-p_post(Key, Context, Val, #director{w=W,n=_N}) ->
   error_logger:info_msg("Putting up a key, director on node: ~p", [node()]),
   Nodes = ring:get_nodes_for_key(Key),
   error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),

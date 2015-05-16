@@ -12,6 +12,8 @@ init(Req, Opts) ->
 			process_get_request(Req);
 		<<"PUT">> ->
 			process_put_request(Req);
+		<<"POST">> ->
+			process_post_request(Req);
 		<<"DELETE">> ->
 			process_delete_request(Req);
 		(_) ->
@@ -58,6 +60,30 @@ process_put_request(Req) ->
 			], Value, Req)
 
 	end.
+
+ process_post_request(Req) ->
+	{ok, Params, _Req2}  = cowboy_req:body_qs(Req),
+	Key = proplists:get_value(<<"key">>, Params),
+	Value = proplists:get_value(<<"value">>, Params),
+	TContext = proplists:get_value(<<"context">>, Params),
+	IsInt = is_integer_p(TContext),
+	Context = if IsInt -> list_to_integer(binary_to_list(TContext));
+		true -> []
+	end,
+	case director:get(Key) of
+		{ok,{ok,not_found}} -> 
+	    	case director:put(Key, Context, Value) of
+				{failure, _Reason} -> cowboy_req:reply(400, [], <<"Failed to post your key, sorry :(">>, Req);
+				{ok, _N} -> cowboy_req:reply(200, [{<<"content-type">>, <<"text/plain; charset=utf-8">>}], Value, Req)
+			end;
+	    {ok, {_Context, _Values}} -> cowboy_req:reply(400, [], <<"Key already exists, failed to post your key.">>, Req);
+	    {failure, _Reason} -> cowboy_req:reply(400, [], <<"Missing key parameter.">>, Req);
+	    true -> 
+	    	case director:put(Key, Context, Value) of
+				{failure, _Reason} -> cowboy_req:reply(400, [], <<"Failed to post your key, sorry :(((">>, Req);
+				{ok, _N} -> cowboy_req:reply(200, [{<<"content-type">>, <<"text/plain; charset=utf-8">>}], Value, Req)
+			end
+ 	end.
 
 %% procesess DELETE request for a key
 %% return not_found in case the key was not found in the dynamo cluster (conditions defined by setup)
