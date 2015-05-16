@@ -5,7 +5,7 @@
 
 -behaviour(gen_server).
 
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3,p_put/4,p_put/5,p_del/2,p_del/3,p_get/2,p_get/3]).
 -export([start_link/1, get/1, put/3, del/1, stop/0]).
 
 %% N - degree of replication
@@ -56,6 +56,29 @@ terminate(_R, _State) ->
 code_change(_Old, State, _New) ->
     {ok, State}.
 
+%% random node selection
+p_put(Key, Context, Val, S) ->
+  Nodes = ring:nodes(),
+  Index = random:uniform(length(Nodes)),
+  Node = lists:nth(Index,Nodes),
+  error_logger:info_msg("Selected: ~p", [Node]),
+  rpc:call(Node,director,p_put,[Node,Key,Context,Val,S]).
+
+%% random node selection
+p_del(Key, S) ->
+  Nodes = ring:nodes(),
+  Index = random:uniform(length(Nodes)),
+  Node = lists:nth(Index,Nodes),
+  error_logger:info_msg("Selected: ~p", [Node]),
+  rpc:call(Node,director,p_del,[Node,Key,S]).
+
+%% random node selection
+p_get(Key, S) ->
+  Nodes = ring:nodes(),
+  Index = random:uniform(length(Nodes)),
+  Node = lists:nth(Index,Nodes),
+  error_logger:info_msg("Selected: ~p", [Node]),
+  rpc:call(Node,director,p_get,[Node,Key,S]).
 
 
 %% Puts a Key inside the correct node, has to receive over W replies in order for a successful reply
@@ -67,7 +90,7 @@ code_change(_Old, State, _New) ->
 %% - calls this function over selected Nodes
 %% - parse replies from nodes
 %% - if over W correct replies -> return ok reply and puts key
-p_put(Key, Context, Val, #director{w=W,n=_N}) ->
+p_put(_Node,Key, Context, Val, #director{w=W,n=_N}) ->
   error_logger:info_msg("Putting up a key, director on node: ~p", [node()]),
   Nodes = ring:get_nodes_for_key(Key),
   error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
@@ -96,7 +119,7 @@ p_put(Key, Context, Val, #director{w=W,n=_N}) ->
 %% - calls this function over selected Nodes
 %% - parse replies from nodes
 %% - if over W correct replies -> return ok reply and delete key
-p_del(Key, #director{n=_N}) ->
+p_del(_Node,Key, #director{n=_N}) ->
   Nodes = ring:get_nodes_for_key(Key),
   error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
   Part = ring:part_for_key(Key),
@@ -121,7 +144,7 @@ p_del(Key, #director{n=_N}) ->
 %% - calls this function over selected Nodes
 %% - parse replies from nodes
 %% - if over R correct replies -> return ok reply and store key
-p_get(Key, #director{r=R,n=_N}) ->
+p_get(_Node,Key, #director{r=R,n=_N}) ->
   Nodes = ring:get_nodes_for_key(Key),
   error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
   Part = ring:part_for_key(Key),

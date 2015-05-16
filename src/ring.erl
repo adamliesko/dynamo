@@ -209,6 +209,8 @@ p_part_for_key(Key, State) ->
       true -> ((DivRes-1) * RangeL) + 1
   end.
 
+
+%% gets index of a partition in a partition array
 idx_for_part(Part, Quorom) ->
   RangeL = nth_power_of_two(32-Quorom),
   (Part div RangeL) + 1. %% not zero index
@@ -222,6 +224,7 @@ n_cons_nodes(StartN, No, CNodes) ->
   end.
 
 %% tail call so reverse, to check
+% returns n consequent nodes
 n_cons_nodes(_, 0, _, Acc, _) ->
 lists:reverse(Acc);
 
@@ -237,7 +240,7 @@ n_cons_nodes(StartN, N, [StartN|Nodes], Acc, CNodes) ->
 n_cons_nodes(StartN, No, [_|CNodes], Acc, Nodes) ->
   n_cons_nodes(StartN, No, CNodes, Acc, Nodes). %% sometimes it could help
 
-
+%% this take or steals partitions from other node - check dynamo v3 partitioning algo desc.
 take_parts(ToNode, Parts, Nodes, {_N,Q}) ->
   GivenToks = nth_power_of_two(Q) div length(Nodes),
   FromEvery = GivenToks div (length(Nodes)-1),
@@ -264,7 +267,7 @@ take_parts(ToNode, GivenToks, FromEvery, Parts, [FromNode|Nodes], Taken) ->
   {NewParts,NewTaken} = take_n(FromEvery, FromNode, ToNode, Parts, Taken),
   take_parts(ToNode, GivenToks, FromEvery, NewParts, Nodes, NewTaken).
 
-
+% support function for stealing/taking parts
 take_n(0, _CurrNode, _ToNode, Parts, Taken) -> {Parts,Taken};
 
 take_n(N, CurrNode, ToNode, Parts, Taken) ->
@@ -284,10 +287,13 @@ p_join(IncomingNode, #ring{n=N,q=Q,parts=Parts,version=Version,nodes=Oldies}) ->
     #ring{n=N,q=Q, parts=UP,version = vector_clock:incr(node(), Version),
       nodes=CurrNodes,oldies=Parts}.
 
+
+%%get partitions for a node
 p_parts_for_node(Node, St, master) ->
         Parts = St#ring.parts,
         {Suitable,_} = lists:partition(fun({Nod,_}) -> Nod == Node end, Parts),
-        lists:map(fun({_,Part}) -> Part end, Suitable);
+        lists:map(fun({_,Part}) -> Part end, Suitable)
+    ;
 p_parts_for_node(Node, St, all) ->
         N = St#ring.n,
         RNodes = lists:reverse(St#ring.nodes),
@@ -296,12 +302,16 @@ p_parts_for_node(Node, St, all) ->
             lists:merge(Accu, p_parts_for_node(X, St, master)) %% only a pseudo master
           end, [], PNodes).
 
+
+% get all nodes for selected key
 p_nodes_for_key(Key, St) ->
     HashedKey= erlang:phash2(Key),
     Quorum = St#ring.q,
     Part = select_part(HashedKey, Quorum),
     p_nodes_for_part(Part, St).
 
+
+%% get all nodes for that partition
 p_nodes_for_part(Part, St) ->
     Parts = St#ring.parts,
     Quorum = St#ring.q,
@@ -309,6 +319,8 @@ p_nodes_for_part(Part, St) ->
     {CNode,Part} = lists:nth(idx_for_part(Part, Quorum), Parts),
     n_cons_nodes(CNode, N, St#ring.nodes).
 
+
+%% selects partition for a key
 select_part(HashedK,Q) ->
   RangeL = nth_power_of_two(32-Q), %% todo, extract? maybe?
   DivRes = (HashedK div RangeL),
