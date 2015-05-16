@@ -27,7 +27,6 @@ insert(KeyHash, Key, Value, Min, Max, Node) when is_record(Node, node) ->
 insert(_, Key, Value, _, _, Leaf) when is_record(Leaf, leaf) and (Key==Leaf#leaf.key) ->
   #leaf{hash=hash(Value),key=Key}; %replace leaf
 insert(KeyHash, Key, Value, Min, Max, Leaf) when is_record(Leaf, leaf) ->
-  error_logger:info_msg("~Min a max: ~p a ~p", [Min, Max]),
     Middle=(Min+Max) div 2,
     Node = #node{middle=Middle,left=empty,right=empty,hash=empty},
     H = hash(Leaf#leaf.key),
