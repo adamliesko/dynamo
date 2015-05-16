@@ -12,6 +12,10 @@ init(Req, Opts) ->
 			process_get_request(Req);
 		<<"PUT">> ->
 			process_put_request(Req);
+		<<"POST">> ->
+			process_post_request(Req);
+		<<"DELETE">> ->
+			process_delete_request(Req);
 		(_) ->
 			cowboy_req:reply(405, Req)
 	end,
@@ -27,15 +31,14 @@ process_get_request(Req) ->
 	case director:get(Key) of
 		{ok,{ok,not_found}} -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
 		{ok, 	    {failure, _Reason}} -> cowboy_req:reply(400, [], <<"Key not found.">>, Req);
-	    {ok, {_Context,	     Values}} ->
-						{Context,_Value}=Values,
-error_logger:info_msg("~nThis is the replyCONTEXT: ~p VALS:~p~n", [Context, Values]),
-R= io_lib:format("~p",[Values]),
-lists:flatten(R),
-						%%Response = lists:concat([context_,Context,Value]),
-		    	cowboy_req:reply(200, [
-					{<<"content-type">>, <<"text/plain; charset=utf-8">>}
-				], R, Req);
+	   	    {ok, {_Context,	     Values}} ->
+     						{Context,_Value}=Values,
+     error_logger:info_msg("~nThis is the replyCONTEXT: ~p VALS:~p~n", [Context, Values]),
+     R= io_lib:format("~p",[Values]),
+     lists:flatten(R),
+     	cowboy_req:reply(200, [
+     					{<<"content-type">>, <<"text/plain; charset=utf-8">>}
+     				], R, Req);
 
 	    {failure, _Reason} ->
 	    	cowboy_req:reply(400, [], <<"Missing key parameter.">>, Req)
@@ -45,21 +48,65 @@ process_put_request(Req) ->
 	{ok, Params, _Req2}  = cowboy_req:body_qs(Req),
 	Key = proplists:get_value(<<"key">>, Params),
 	Value = proplists:get_value(<<"value">>, Params),
-	TContext =  proplists:get_value(<<"context">>, Params),
-	Context = case TContext of
 
-					undefined -> [];
-					_ ->
-					X=binary_to_list(TContext),
-					error_logger:info_msg("~nTHIS IS THE CONTEXT: ~p~n", [X]),
-          					X
-	end,
-	case director:put(Key, Context, Value) of
+	TContext = proplists:get_value(<<"context">>, Params),
+	TContext =  proplists:get_value(<<"context">>, Params),
+  	_Context = case TContext of
+
+  					undefined -> [];
+  					_ ->
+  					X=binary_to_list(TContext),
+  					error_logger:info_msg("~nTHIS IS THE CONTEXT: ~p~n", [X]),
+            					X
+  	end,
+	case director:put(Key, [], Value) of
 		{failure, _Reason} ->
 		cowboy_req:reply(400, [], <<"Failed to put your key, sorry :(">>, Req);
 		{ok, _N} ->
 			cowboy_req:reply(200, [
 				{<<"content-type">>, <<"text/plain; charset=utf-8">>}
 			], Value, Req)
+	end.
 
+ process_post_request(Req) ->
+	{ok, Params, _Req2}  = cowboy_req:body_qs(Req),
+	Key = proplists:get_value(<<"key">>, Params),
+	Value = proplists:get_value(<<"value">>, Params),
+	TContext = proplists:get_value(<<"context">>, Params),
+	TContext =  proplists:get_value(<<"context">>, Params),
+  	_Context = case TContext of
+
+  					undefined -> [];
+  					_ ->
+  					X=binary_to_list(TContext),
+  					error_logger:info_msg("~nTHIS IS THE CONTEXT: ~p~n", [X]),
+            					X
+  	end,
+	case director:get(Key) of
+		{ok,{ok,not_found}} ->
+	    	case director:put(Key, [], Value) of
+				{failure, _Reason} -> cowboy_req:reply(400, [], <<"Failed to post your key, sorry :(">>, Req);
+				{ok, _N} -> cowboy_req:reply(200, [{<<"content-type">>, <<"text/plain; charset=utf-8">>}], Value, Req)
+			end;
+	    {ok, {_Context, _Values}} -> cowboy_req:reply(400, [], <<"Key already exists, failed to post your key.">>, Req);
+	    {failure, _Reason} -> cowboy_req:reply(400, [], <<"Missing key parameter.">>, Req);
+	    true ->
+	    	case director:put(Key, [], Value) of
+				{failure, _Reason} -> cowboy_req:reply(400, [], <<"Failed to post your key, sorry :(((">>, Req);
+				{ok, _N} -> cowboy_req:reply(200, [{<<"content-type">>, <<"text/plain; charset=utf-8">>}], Value, Req)
+			end
+ 	end.
+
+%% procesess DELETE request for a key
+%% return not_found in case the key was not found in the dynamo cluster (conditions defined by setup)
+%% return failure in case of missing params, or something worse, we pretend that your param is always missing
+%% 					in case of a failure
+%% on a s
+process_delete_request(Req) ->
+	#{key := Key} = cowboy_req:match_qs([key], Req),
+	case director:del(Key) of
+		{failure, _Reason} ->
+		cowboy_req:reply(400, [], <<"Failed to delete your key, sorry :(">>, Req);
+		{ok, _N} ->
+			cowboy_req:reply(200, [], <<"Key was deleted">>, Req)
 	end.

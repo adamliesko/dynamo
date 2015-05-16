@@ -54,11 +54,15 @@ join(Acc, [{FNode, FVersion}|FClock], SClock) ->
       join([{FNode,FVersion}|Acc],FClock,SClock)
   end.
 
-incr(Node, [{Node, Context}|VectorClocks]) ->
+incr(Node, [{Node, Context}|VectorClocks]=X) ->
+ error_logger:info_msg("Toto je nas X:~p,", [X]),
   	[{Node, Context+1}|VectorClocks];
-incr(Node, [VectorClock|VectorClocks]) ->
+incr(Node, [VectorClock|VectorClocks]=X) ->
+ error_logger:info_msg("vetva 2 Toto je nas X:p,", [X]),
+  error_logger:info_msg("~nToto je nas vc:~p,", [VectorClock]),
   	[VectorClock|incr(Node, VectorClocks)];
 incr(Node, []) ->
+ error_logger:info_msg("~nToto je nas node~p,", [Node]),
     [{Node, 1}].
 equal(First,Second) ->
     if length(First) == length(Second) ->

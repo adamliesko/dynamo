@@ -5,8 +5,8 @@
 
 -behaviour(gen_server).
 
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3,p_put/4,p_put/5]).
--export([start_link/1, get/1, put/3, del/1, post/3,stop/0]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3,p_put/4,p_put/5,p_del/2,p_del/3,p_get/2,p_get/3]).
+-export([start_link/1, get/1, put/3, del/1, stop/0]).
 
 %% N - degree of replication
 %% R - number of  req. successful replies during read operation
@@ -33,10 +33,6 @@ del(Key) ->
 put(Key, Context, Val) ->
   gen_server:call(director, {put, Key, Context, Val}).
 
-% api for posting a key, with option to specify context
-post(Key, Context, Val) ->
-  gen_server:call(director, {put, Key, Context, Val}).
-
 % initialize new director record and sets state
 init({N,R,W}) ->
     {ok, #director{n=N,r=R,w=W}}.
@@ -49,8 +45,6 @@ handle_call({get, Key}, _From, State) ->
 handle_call({del, Key}, _From, State) ->
   {reply, p_del(Key, State), State};
 
-handle_call({post, Key, Context, Val}, _From, State) ->
-  {reply, p_post(Key, Context, Val, State), State};
 handle_call(stop, _From, State) ->
   {stop, shutdown, ok, State}.
 handle_cast(_Msg, State) ->
@@ -62,6 +56,7 @@ terminate(_R, _State) ->
 code_change(_Old, State, _New) ->
     {ok, State}.
 
+
 %% random node selection
 p_put(Key, Context, Val, S) ->
   Nodes = ring:nodes(),
@@ -69,6 +64,23 @@ p_put(Key, Context, Val, S) ->
   Node = lists:nth(Index,Nodes),
   error_logger:info_msg("Selected: ~p", [Node]),
   rpc:call(Node,director,p_put,[Node,Key,Context,Val,S]).
+
+%% random node selection
+p_del(Key, S) ->
+  Nodes = ring:nodes(),
+  Index = random:uniform(length(Nodes)),
+  Node = lists:nth(Index,Nodes),
+  error_logger:info_msg("Selected: ~p", [Node]),
+  rpc:call(Node,director,p_del,[Node,Key,S]).
+
+%% random node selection
+p_get(Key, S) ->
+  Nodes = ring:nodes(),
+  Index = random:uniform(length(Nodes)),
+  Node = lists:nth(Index,Nodes),
+  error_logger:info_msg("Selected: ~p", [
+  Node]),
+  rpc:call(Node,director,p_get,[Node,Key,S]).
 
 
 %% Puts a Key inside the correct node, has to receive over W replies in order for a successful reply
@@ -81,39 +93,7 @@ p_put(Key, Context, Val, S) ->
 %% - parse replies from nodes
 %% - if over W correct replies -> return ok reply and puts key
 p_put(_Node,Key, Context, Val, #director{w=W,n=_N}) ->
-  error_logger:info_msg("Write is being handled by a node: ~p", [node()]),
-  Nodes = ring:get_nodes_for_key(Key),
-
-  Part = ring:part_for_key(Key),
-
-  error_logger:info_msg("~nCONTEXT JE: ~p~n,",[Context]),
- Incr =  case Context of
-          [] -> vector_clock:incr(node(), []);
-         _ ->  vector_clock:incr(node(),Context),   error_logger:info_msg("~nINCREMENTUJEM SPRAVNU VEC~n,")
-    end,
-
-  error_logger:info_msg("~nTakto som inkrementoval vector clock~p~n,", [Incr]),
-  Command = fun(XNode) ->
-    storage:put({list_to_atom(lists:concat([storage_, Part])),XNode}, Key, Incr, Val)
-  end,
-  {GoodNodes, _Bad} = check_nodes(Command, Nodes),
-  %% check consistency init  param W
-  if
-    length(GoodNodes) >= W -> {ok,{length(GoodNodes)}};
-    true -> {failure,{length(GoodNodes)}}
-  end.
-
-%% Posts a Key inside the correct node, has to receive over W replies in order for a successful reply
-%% POST STORES KEY ONLY IF IT DOES NOT EXIST PREVIOUSLY
-%% - gets nodes for a selected key
-%% - gets partitions for a selected key
-%% - parse vector clock and incr
-%% - Builds up a function of a put key operation
-%% - calls this function over selected Nodes
-%% - parse replies from nodes
-%% - if over W correct replies -> return ok reply and puts key
-p_post(Key, Context, Val, #director{w=W,n=_N}) ->
-  error_logger:info_msg("Posting up a key, director on node: ~p", [node()]),
+  error_logger:info_msg("Putting up a key, director on node: ~p", [node()]),
   Nodes = ring:get_nodes_for_key(Key),
   error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
   Part = ring:part_for_key(Key),
@@ -132,6 +112,7 @@ p_post(Key, Context, Val, #director{w=W,n=_N}) ->
     true -> {failure,{length(GoodNodes)}}
   end.
 
+
 %% Delete a key inside the correct node, has to receive over W replies in order for a successful reply
 %% - gets nodes for a selected key
 %% - gets partitions for a selected key
@@ -140,22 +121,22 @@ p_post(Key, Context, Val, #director{w=W,n=_N}) ->
 %% - calls this function over selected Nodes
 %% - parse replies from nodes
 %% - if over W correct replies -> return ok reply and delete key
-p_del(Key, #director{w=W,n=_N}) ->
-  error_logger:info_msg("Deleting a key, director on node: ~p", [node()]),
+p_del(_Node,Key, #director{n=_N}) ->
   Nodes = ring:get_nodes_for_key(Key),
   error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
   Part = ring:part_for_key(Key),
   error_logger:info_msg("~nThis is the partition fror a key~p~n,", [Part]),
   Command = fun(Node) ->
-    storage:delete({list_to_atom(lists:concat([storage_, Part])),Node}, Key)
+    storage:delete({list_to_atom(lists:concat([storage_, Part])), Node}, Key)
   end,
   {GoodNodes, _Bad} = check_nodes(Command, Nodes),
   error_logger:info_msg("~nThese are the good replies:~p~n,", [GoodNodes]),
   %% check consistency init  param W
   if
-    length(GoodNodes) >= W -> {ok,{length(GoodNodes)}};
+    length(GoodNodes) == 0 -> {ok, {length(GoodNodes)}};
     true -> {failure,{length(GoodNodes)}}
   end.
+
 
 %% Gets a value for key, has to receive over R replies in order for a successful reply
 %% - gets nodes for a selected key
@@ -165,7 +146,7 @@ p_del(Key, #director{w=W,n=_N}) ->
 %% - calls this function over selected Nodes
 %% - parse replies from nodes
 %% - if over R correct replies -> return ok reply and store key
-p_get(Key, #director{r=R,n=_N}) ->
+p_get(_Node,Key, #director{r=R,n=_N}) ->
   Nodes = ring:get_nodes_for_key(Key),
   error_logger:info_msg("~nThese are the current nodes~p,", [Nodes]),
   Part = ring:part_for_key(Key),
@@ -176,7 +157,7 @@ p_get(Key, #director{r=R,n=_N}) ->
   {GoodNodes, Bad} = check_nodes(Command, Nodes),
   NotFound = check_not_found(Bad,R),
     %% check consistency init  param R
-  error_logger:info_msg("~nThese are the good replies:~p~n,", [read_replies(GoodNodes)]),
+  error_logger:info_msg("~nThese are the good replies:~p~n,", [GoodNodes]),
   if
     length(GoodNodes) >= R -> {ok, read_replies(GoodNodes)};
     NotFound -> {ok, not_found};
@@ -187,7 +168,7 @@ p_get(Key, #director{r=R,n=_N}) ->
 % this is applied only after not getting over R correct replies
 % in case of this is false, we return failure as a reply  for ops GET, POST, PUT, DELETE ...
 check_not_found(BadReplies, R) ->
-  Total = lists:foldl(fun({_, Elem}, Aku) -> 
+  Total = lists:foldl(fun({_, Elem}, Aku) ->
     case Elem of
       not_found -> Aku+1;
       _ -> Aku
@@ -209,7 +190,6 @@ read_replies([FirstReply|Replies]) ->
 %% Get replies from nodes , takes only good replies and maps them to values
 check_nodes(Command, Nodes) ->
   Replies = reader:map_nodes(Command,Nodes),
-   error_logger:info_msg("~n Replies~n~p:",[Replies]),
   GoodReplies = [X|| X <- Replies,get_ok_replies(X) ],
  BadReplies = lists:subtract(Replies,GoodReplies),
   GoodValues = lists:map(fun get_value/1, GoodReplies),
@@ -232,3 +212,7 @@ get_ok_replies(_Reply) ->
 
 %%filter UNUSED(Set1, Fnc) ->
 %%  [X || X <- Set1, Fnc(X)].
+
+
+
+
